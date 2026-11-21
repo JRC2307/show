@@ -1,0 +1,1228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark light">
+<title>show</title>
+<style>
+  /* The picture is black on purpose in every theme (a dark room, a projector); only the console follows the system. */
+  :root { --panel: rgba(14,13,11,.88); --ink: #efe9dc; --dim: rgba(239,233,220,.58); --line: rgba(239,233,220,.16); --hot: #c9a25a; }
+  @media (prefers-color-scheme: light) {
+    :root { --panel: rgba(250,246,238,.93); --ink: #1b1812; --dim: rgba(27,24,18,.6); --line: rgba(27,24,18,.18); --hot: #8a5a1c; }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color: var(--ink);
+    font: 12px/1.35 ui-monospace, "SF Mono", Menlo, Consolas, monospace; -webkit-user-select: none; user-select: none; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  body.out, body.quiet { cursor: none; } body.dock { cursor: default; }
+  #hud { position: fixed; left: 14px; bottom: 14px; width: min(520px, calc(100vw - 28px)); max-height: calc(100vh - 28px); overflow: auto;
+    padding: 12px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); z-index: 3; }
+  body.quiet #hud, body.out #hud { display: none; }
+  h1 { margin: 0; font: 800 17px/1 ui-rounded, -apple-system, "Helvetica Neue", Arial, sans-serif; letter-spacing: -.02em; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 6px; }
+  details { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 2px; }
+  summary { list-style: none; cursor: pointer; padding: 6px 0 2px; color: var(--dim); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; outline: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: '+'; display: inline-block; width: 14px; color: var(--hot); }
+  details[open] > summary::before { content: '–'; }
+  summary:hover, summary:focus-visible { color: var(--ink); }
+  #guide { position: fixed; right: 14px; top: 14px; width: min(470px, calc(100vw - 28px)); max-height: calc(100vh - 28px); overflow: auto;
+    padding: 12px 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); z-index: 4; font: 13px/1.5 -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  body.quiet #guide, body.out #guide { display: none; }
+  #gtop { display: flex; align-items: center; gap: 4px; } #gtop h1 { margin-right: auto; }
+  #guide summary { font: 600 13px/1.3 -apple-system, "Helvetica Neue", Arial, sans-serif; letter-spacing: 0; text-transform: none; color: var(--ink); padding: 8px 0 4px; }
+  #guide ul, #guide ol { margin: 4px 0 8px; padding-left: 20px; } #guide li { margin: 4px 0; color: var(--dim); } #guide li b { color: var(--ink); font-weight: 600; }
+  #guide table { border-collapse: collapse; margin: 4px 0 8px; width: 100%; } #guide td { padding: 3px 8px 3px 0; color: var(--dim); white-space: nowrap; }
+  kbd, code { font: 11px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink); border: 1px solid var(--line); border-radius: 5px; padding: 2px 5px; }
+  code { border: 0; padding: 0; }
+  button, select, input[type=text] { appearance: none; -webkit-appearance: none; border: 1px solid var(--line); background: transparent; color: var(--ink);
+    font: inherit; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; padding: 6px 9px; border-radius: 9px; cursor: pointer; }
+  button:hover, button:focus-visible { background: var(--line); outline: none; }
+  button.on { background: var(--ink); color: #000; border-color: var(--ink); }
+  @media (prefers-color-scheme: light) { button.on { color: #fff; } }
+  button.learn, .kn.learn { outline: 2px dashed var(--hot); outline-offset: 1px; }
+  button i { font-style: normal; color: var(--dim); margin-right: 5px; } button.on i { color: inherit; opacity: .6; }
+  select { max-width: 190px; text-transform: none; }
+  input[type=text] { flex: 1; min-width: 120px; text-transform: none; cursor: text; -webkit-user-select: text; user-select: text; }
+  .sw { width: 34px; height: 24px; padding: 0; border-radius: 8px; }
+  .sw.on { outline: 2px solid var(--ink); outline-offset: 1px; }
+  #knobs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px 10px; margin-top: 6px; }
+  .kn { display: block; padding: 2px; border-radius: 8px; }
+  .kn span { display: flex; justify-content: space-between; color: var(--dim); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+  .kn input { width: 100%; margin: 3px 0 0; accent-color: var(--hot); }
+  #top { display: flex; align-items: center; gap: 10px; }
+  #look { color: var(--dim); }
+  #meters { display: flex; align-items: flex-end; gap: 3px; height: 26px; margin-left: auto; }
+  #meters b { display: block; width: 7px; height: 100%; background: var(--hot); transform-origin: bottom; transform: scaleY(.02); border-radius: 2px; }
+  #dot { width: 12px; height: 12px; border-radius: 50%; background: var(--ink); opacity: .1; align-self: center; margin-left: 4px; }
+  #msg { color: var(--dim); margin-top: 8px; min-height: 1.35em; }
+  /* the dock: the whole remote for a window with no console (the projector window, a second computer, a hidden console) */
+  #dock { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 3; width: max-content; max-width: calc(100vw - 24px);
+    padding: 4px 10px 10px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+  #dock .row { justify-content: center; }
+  body.mapping #dock, body:not(.dock) #dock { display: none; }
+  body.out [data-a=hide], body.out [data-a=out] { display: none; }
+  #mapui { z-index: 5; touch-action: none; cursor: crosshair; }
+  #mapbar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 6; display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+    justify-content: center; width: max-content; max-width: calc(100vw - 24px); padding: 8px 10px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); }
+  #mapbar.up { bottom: auto; top: 16px; }
+  #mapbar span { flex-basis: 100%; text-align: center; color: var(--dim); font-size: 11px; padding-top: 4px; }
+  body.mapping { cursor: default !important; } body.mapping #hud, body.mapping #guide, body.mapping #wait { display: none; }
+  #wait { position: fixed; left: 0; right: 0; bottom: 20px; text-align: center; color: rgba(255,255,255,.45); letter-spacing: .14em; text-transform: uppercase; pointer-events: none; }
+  body.dock #wait { display: none; }
+  #fail { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 30px; text-align: center; color: #aaa; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<canvas id="mapui" hidden></canvas>
+<div id="mapbar" hidden>
+  <button data-m="add" title="add another surface (n)">+ surface</button><button data-m="del" title="remove the selected surface (delete)">remove</button>
+  <button data-m="fit" title="fit: the whole picture inside this surface. window: the surface shows the part of the picture behind it (v)">fit</button>
+  <button data-m="grid" title="switch between the alignment grid and the real picture (g)">grid</button>
+  <button data-m="save" title="download the map as a file">save file</button><button data-m="load" title="open a saved map">load file</button>
+  <button data-m="clear" title="remove every surface">clear all</button><button data-m="bar" title="move this bar to the top or the bottom">bar ↕</button>
+  <button data-m="done" title="finish (esc)">done</button>
+  <span id="maphint"></span>
+</div>
+<input type="file" id="mapfile" accept=".json,application/json" hidden>
+<input type="file" id="vidfile" accept="video/*" hidden>
+<div id="hud">
+  <div id="top"><h1>show</h1><span id="look"></span>
+    <div id="meters"><b></b><b></b><b></b><span id="dot"></span></div>
+    <button data-a="guide" title="how to use it (?)">guide</button></div>
+  <details class="sec" data-s="scenes" open><summary>calm scenes</summary><div class="row looks" data-bank="0"></div>
+    <div class="row"><button data-a="vid" title="pick a video file from this computer for the video scene">load video</button></div></details>
+  <details class="sec" data-s="wild"><summary>wild scenes</summary><div class="row looks" data-bank="1"></div></details>
+  <details class="sec" data-s="color" open><summary>color</summary><div class="row pals"></div></details>
+  <details class="sec" data-s="controls" open><summary>controls</summary><div id="knobs"></div></details>
+  <details class="sec" data-s="play" open><summary>sound and auto-change</summary><div class="row">
+    <button data-a="snd" title="let the picture follow the music, or let it breathe by itself">sound off</button><select id="dev" hidden></select>
+    <button data-a="auto" title="change scene by itself every few minutes, or never (a)">hold scene</button>
+    <button data-a="black" title="fade the picture to black (b)">blackout</button></div></details>
+  <details class="sec" data-s="text"><summary>text</summary><div class="row">
+    <input type="text" id="txt" maxlength="80" autocomplete="off" spellcheck="false" placeholder="a word or a name">
+    <button data-a="text" title="show or hide the text">show text</button></div></details>
+  <details class="sec" data-s="setup"><summary>setup</summary><div class="row">
+    <button data-a="out" title="open the window that goes on the projector">open output</button><button data-a="full" title="(f)">fullscreen</button>
+    <button data-a="map" title="fit the picture to the real surfaces (p)">map</button>
+    <button data-a="midi">midi</button><button data-a="learn" title="press a control here, then move one on the controller">midi learn</button>
+    <button data-a="hide" title="(h)">hide panel</button>
+    <button data-a="reset" title="controls, color and auto-change back to how they started">reset</button></div></details>
+  <div id="msg"></div>
+</div>
+<div id="dock">
+  <div class="row looks" data-bank="0"></div><div class="row looks" data-bank="1"></div>
+  <div class="row"><span class="row pals" style="margin:0 8px 0 0"></span>
+    <button data-a="vid">load video</button><button data-a="snd">sound off</button><button data-a="auto">hold scene</button><button data-a="black">blackout</button>
+    <button data-a="full">fullscreen</button><button data-a="map">map</button><button data-a="hide" title="bring the panel back (h)">panel</button></div>
+</div>
+<div id="guide" hidden>
+  <div id="gtop"><h1>guide</h1><button data-g="all">open all</button><button data-g="none">close all</button><button data-g="close" title="(?)">close</button></div>
+  <details open><summary>Start in one minute</summary>
+    <ol><li>Open this page. It already moves by itself, slowly, and never repeats.</li>
+    <li>Pick a scene with keys <kbd>1</kbd> to <kbd>9</kbd> and <kbd>0</kbd>, and a color with the arrow keys.</li>
+    <li>Press <b>open output</b> (under <b>setup</b>), drag the new window to the projector and press <kbd>f</kbd> in it.</li>
+    <li>To make it follow the music, press <b>sound off</b> and allow the microphone. Otherwise it breathes by itself.</li>
+    <li>Leave it. Every scene is made to be watched for hours without touching anything.</li></ol></details>
+  <details><summary>Calm scenes</summary>
+    <ul><li><kbd>1</kbd> <b>fluid</b>: slow ink folding over itself.</li>
+    <li><kbd>2</kbd> <b>roots</b>: thousands of fine tips climb and join into thick roots that keep moving.</li>
+    <li><kbd>3</kbd> <b>mycelium</b>: a dense web, like fungus under the soil.</li>
+    <li><kbd>4</kbd> <b>veins</b>: an open network of paths looking for each other.</li>
+    <li><kbd>5</kbd> <b>coral</b>: thick branches that grow and pull back.</li>
+    <li><kbd>6</kbd> <b>contours</b>: the height lines of a landscape that keeps changing.</li>
+    <li><kbd>7</kbd> <b>wood</b>: the rings of a trunk that is still growing.</li>
+    <li><kbd>8</kbd> <b>mud</b>: cracked earth with light in the cracks.</li>
+    <li><kbd>9</kbd> <b>sand</b>: dunes with the ripples the wind leaves.</li>
+    <li><kbd>0</kbd> <b>lichen</b>: colonies that spread and shrink on stone.</li>
+    <li><kbd>q</kbd> <b>forest</b>: an endless walk past a misty wood, simple shapes and soft light. It is the brightest scene, so it suits a wooden wall.</li>
+    <li><kbd>v</kbd> <b>video</b>: your own video as the background, tinted with the chosen color, with the outlines of its light drawn on top. Press <b>load video</b> and pick the file; it loops without sound. <b>shape</b> makes it ripple.</li>
+    <li>Between two scenes the picture fades to black and back. The four living scenes (2 to 5) turn into each other without a cut.</li></ul></details>
+  <details><summary>Wild scenes</summary>
+    <ul><li>Hold <kbd>shift</kbd> and press a number: <b>tunnel</b>, <b>cavern</b>, <b>kaleido</b>, <b>acid</b>, <b>eyes</b>, <b>spiral</b>, <b>moiré</b>, <b>julia</b>, <b>lava</b> and <b>truchet</b>.</li>
+    <li>They follow the music more closely and move fast, but they never flash: fast flashing can trigger seizures in people with epilepsy.</li>
+    <li>A click, the space bar and auto-change stay inside the group you are in: calm stays calm, wild stays wild.</li>
+    <li>The last three colors suit them best: <b>neon</b>, <b>ultra</b> and <b>acid</b>.</li></ul></details>
+  <details><summary>Color and controls</summary>
+    <ul><li>Six earth colors: <b>earth</b>, <b>moss</b>, <b>clay</b>, <b>river</b>, <b>bone</b> and <b>ember</b>, and three strong ones: <b>neon</b>, <b>ultra</b> and <b>acid</b>.</li>
+    <li><b>wall boost</b>: lightens the whole picture, mostly the middle tones. Turn it up when the wall soaks up the light (wood, brick, a dark wall); turn it down on a screen or a white wall.</li>
+    <li><b>response</b>: how strongly the picture follows the music. At zero it does not listen.</li>
+    <li><b>speed</b>: how fast everything moves.</li>
+    <li><b>shape</b>: changes the drawing. Each scene uses it in its own way (more lines, smaller cracks, wider roots).</li>
+    <li><b>dimmer</b>: overall brightness (<kbd>-</kbd> and <kbd>=</kbd>). It starts at full, so it only goes down.</li></ul></details>
+  <details><summary>Sound and auto-change</summary>
+    <ul><li><b>sound off</b>: the picture breathes by itself. Press it and it says <b>listening</b>: it follows the audio input you choose in the list. Bass moves the picture and volume adds light. Nothing flashes or cuts.</li>
+    <li>A cable from the DJ mixer into an audio interface works best. The laptop microphone also works.</li>
+    <li><b>hold scene</b> (<kbd>a</kbd>): the scene stays until you change it. Press it to change scene automatically every 5, 15 or 30 minutes.</li>
+    <li><b>blackout</b> (<kbd>b</kbd>): fades the picture to black. Press it again to bring it back.</li></ul></details>
+  <details><summary>Text</summary>
+    <ul><li>Type a word or a name (<kbd>enter</kbd> jumps to the box) and press <b>show text</b>.</li>
+    <li>In the living scenes (2 to 5) the word <i>grows</i>: it takes a few seconds to form. In the other scenes it appears on top.</li></ul></details>
+  <details><summary>A second computer, or a window with no panel</summary>
+    <ul><li>On the other computer open this same page with <code>?out=1</code> at the end, or serve the file there the same way and press <b>open output</b>.</li>
+    <li><b>One click on the picture goes to the next scene.</b></li>
+    <li>Move the mouse and a bar appears with the scenes, the colors, load video, sound, auto-change, blackout, fullscreen and map. It hides by itself.</li>
+    <li>Each computer remembers its own scene, color and map.</li>
+    <li>If a panel is open on the same computer, the output window follows it: scene, color, controls and the loaded video.</li></ul></details>
+  <details><summary>Mapping: fit the picture to walls and objects</summary>
+    <ul><li>Press <b>open output</b>, move that window to the projector and make it fullscreen (<kbd>f</kbd>). Then press <b>map</b> in the panel, or <kbd>p</kbd> in the projector window.</li>
+    <li>A <b>surface</b> appears with a grid and four corners. With the mouse over the projection, drag each corner to the real corner of the wall, the screen or the box.</li>
+    <li>Fine tuning: click a corner and move it with the <b>arrow keys</b> (one step at a time; ten with <kbd>shift</kbd>). <kbd>tab</kbd> goes to the next corner.</li>
+    <li>Drag from inside to move the whole surface. <b>+ surface</b> (<kbd>n</kbd>) adds another, up to eight. <b>remove</b> deletes the selected one.</li>
+    <li><b>fit</b> puts the whole picture inside that surface. <b>window</b> (<kbd>v</kbd>) uses it as a cut-out: you see the part of the picture behind it, so several surfaces share one large picture.</li>
+    <li><b>grid</b> (<kbd>g</kbd>) switches between the alignment grid and the real picture. Everything outside the surfaces is black.</li>
+    <li><b>done</b> (<kbd>esc</kbd>) finishes. The map is saved on this computer and comes back when you open the output.</li>
+    <li><b>save file</b> downloads the map; <b>load file</b> brings it back on another computer or after the browser data is cleared. Save it once the setup is finished.</li>
+    <li>If the projector moves, the corners need adjusting again. <b>clear all</b> (press twice) goes back to the picture with no map.</li>
+    <li>With a single screen: <b>map</b> in the panel lets you adjust right there, and the map applies when you hide the panel (<kbd>h</kbd>).</li></ul></details>
+  <details><summary>Setting up at the venue</summary>
+    <ul><li><b>No network.</b> The page is a single file. Download it to the laptop, run <code>python3 -m http.server</code> in that folder and open <code>localhost:8000</code> in Chrome. Do not rely on the venue's wifi.</li>
+    <li><b>Two windows.</b> The panel stays on the laptop screen. The <b>output</b> window goes to the projector over HDMI, fullscreen.</li>
+    <li><b>One screen.</b> Use this same window: <kbd>h</kbd> hides the panel and <kbd>f</kbd> makes it fullscreen.</li>
+    <li><b>The output window must stay visible.</b> If it is minimized or covered, it stops drawing.</li>
+    <li><b>Any computer.</b> The page measures how long each frame takes and lowers the detail by itself until it runs smoothly. It remembers that for next time.</li></ul></details>
+  <details><summary>MIDI controller</summary>
+    <ul><li>Plug in the controller and press <b>midi</b> (under setup). Allow access.</li>
+    <li>To assign a control: press <b>midi learn</b>, then the button or the control name here, then move or press the control on the device.</li>
+    <li>By default notes 36 to 57 pick the scene (calm, forest, video, wild) and controls 21 to 25 are the five sliders.</li></ul></details>
+  <details><summary>All the keys</summary>
+    <table><tr><td><kbd>shift</kbd> + number</td><td>wild scene</td><td><kbd>q</kbd> <kbd>v</kbd></td><td>forest, video</td></tr>
+    <tr><td><kbd>1</kbd>–<kbd>9</kbd> <kbd>0</kbd></td><td>calm scene</td><td><kbd>←</kbd> <kbd>→</kbd></td><td>color</td></tr>
+    <tr><td><kbd>space</kbd></td><td>next scene</td><td><kbd>b</kbd></td><td>blackout</td></tr>
+    <tr><td><kbd>a</kbd></td><td>auto-change</td><td><kbd>-</kbd> <kbd>=</kbd></td><td>dimmer</td></tr>
+    <tr><td><kbd>enter</kbd></td><td>text</td><td><kbd>p</kbd></td><td>map</td></tr>
+    <tr><td><kbd>h</kbd></td><td>hide panel</td><td><kbd>f</kbd></td><td>fullscreen</td></tr>
+    <tr><td><kbd>?</kbd></td><td>this guide</td><td></td><td></td></tr></table></details>
+  <details><summary>If something goes wrong</summary>
+    <ul><li><b>The sound bars do not move:</b> the chosen input is not the one carrying the music. Pick another from the list, or check the microphone permission behind the padlock in the address bar.</li>
+    <li><b>The output does not follow the panel:</b> both windows must be in the same Chrome and at the same address. Close the output and open it again with the button.</li>
+    <li><b>The output shows the video scene without the video:</b> wait two seconds, it asks the panel for the file by itself. If it still does not appear, press <b>load video</b> again.</li>
+    <li><b>The output froze:</b> it is covered or minimized. Bring it to the front.</li>
+    <li><b>It runs slowly:</b> the page lowers the detail by itself within a few seconds. Closing other tabs and plugging in the laptop helps.</li>
+    <li><b>Everything is stuck:</b> reload the page. The scene, the color and the controls are kept.</li></ul></details>
+</div>
+<div id="wait" hidden>f fullscreen · click next scene</div>
+<div id="fail" hidden>This browser does not support WebGL2.</div>
+<script>
+'use strict';
+/* show: slow, earthy pictures that never repeat, for a wall or a projector, for hours.
+   show.html          the console: scene, colour, four knobs, sound in, and the picture itself (h hides the console)
+   show.html?out=1    the picture alone: follows a console in the same browser over a BroadcastChannel; with no console
+                      (a second computer) it runs by itself: a click is the next scene, moving the mouse shows the dock
+   ?look=name  ?n=agents  ?reset=1 (forget saved settings)  ?probe=1 (no loop: window.show.step() drives frames, for tests)
+   Every look draws straight to the screen: one pass. Two clocks reach the shaders and both wrap without a seam, so the
+   picture is as smooth in hour ten as in minute one: uT (wraps at 2000 pi: only inside sin/cos, frequencies in multiples
+   of .001) and uD (wraps at 256: drifts in noise space, integer multiples only; the noise repeats every 256). */
+const Q = new URLSearchParams(location.search), OUT = Q.has('out'), PROBE = Q.has('probe');
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const canvas = $('c');
+const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance', preserveDrawingBuffer: PROBE });
+if (OUT) document.body.classList.add('out');
+if (!gl) { $('fail').hidden = false; $('hud').hidden = true; throw new Error('no webgl2'); }
+const FLOAT = !!gl.getExtension('EXT_color_buffer_float');
+const LITE = /Android|iPhone|iPad|CrOS/.test(navigator.userAgent) || (navigator.hardwareConcurrency || 8) <= 4;   // a phone, a TV stick, an old laptop: start small
+gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+
+// ---------- state: everything a following window needs to draw the same picture ----------
+const PALS = [
+  ['earth',   [.84, .55, .26], [.44, .25, .13], [.95, .83, .62]],
+  ['moss',    [.46, .60, .24], [.12, .32, .22], [.84, .85, .56]],
+  ['clay',    [.82, .40, .25], [.46, .20, .16], [.96, .80, .66]],
+  ['river',    [.22, .50, .52], [.08, .22, .32], [.76, .86, .80]],
+  ['bone',    [.90, .85, .76], [.42, .40, .38], [.78, .64, .50]],
+  ['ember',   [.92, .44, .12], [.48, .12, .08], [.98, .78, .44]],
+  ['neon',    [1.0, .10, .75], [.10, .95, 1.0], [.98, .95, .20]],   // the last three are for the loud bank
+  ['ultra',   [.55, .25, 1.0], [.15, .35, 1.0], [1.0, .35, .80]],
+  ['acid',    [.70, 1.0, .10], [1.0, .20, .60], [.10, .90, .90]],
+];
+const KNOBS = [['gain', 'response', .5], ['speed', 'speed', .4], ['warp', 'shape', .5], ['lift', 'wall boost', .35], ['dim', 'dimmer', 1]];
+const AUTO = [0, 5, 15, 30];                                          // minutes a scene holds before it changes by itself; 0 is never
+const S = { look: 0, pal: 0, seed: 1, k: {}, black: false, auto: 0, text: '', textOn: false, a: { bass: 0, mid: 0, high: 0, level: 0, beat: 0 } };
+for (const [id, , v] of KNOBS) S.k[id] = v;
+const STORE = OUT ? 'show.out' : 'show.lib';                          // the console and a lone picture window each remember their own
+if (Q.has('reset')) try { localStorage.removeItem(STORE); localStorage.removeItem('show.q'); } catch (e) {}
+try { const o = JSON.parse(localStorage.getItem(STORE) || 'null'); if (o) { for (const [id] of KNOBS) if (isFinite(o.k && o.k[id])) S.k[id] = clamp(+o.k[id], 0, 1); S.text = String(o.text || ''); S.textOn = !!o.textOn; S.look = clamp(o.look | 0, 0, 21); S.pal = clamp(o.pal | 0, 0, PALS.length - 1); S.auto = AUTO.includes(o.auto) ? o.auto : 0; } } catch (e) {}
+let saveT = 0;
+const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(STORE, JSON.stringify({ k: S.k, text: S.text, textOn: S.textOn, look: S.look, pal: S.pal, auto: S.auto })); } catch (e) {} }, 400); };
+
+// ---------- gl tools ----------
+function shader(type, src) {
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) + '\n' + src.split('\n').map((l, i) => (i + 1) + ' ' + l).join('\n'));
+  return s;
+}
+const SAMPLERS = { uText: 4, uVid: 5, uMask: 7 };
+function program(vs, fs, tf) {
+  const p = gl.createProgram();
+  gl.attachShader(p, shader(gl.VERTEX_SHADER, vs)); gl.attachShader(p, shader(gl.FRAGMENT_SHADER, fs));
+  gl.bindAttribLocation(p, 0, 'a');
+  if (tf) gl.transformFeedbackVaryings(p, tf, gl.INTERLEAVED_ATTRIBS);
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  gl.useProgram(p);
+  for (let i = 0; i < n; i++) {
+    const name = gl.getActiveUniform(p, i).name.replace(/\[0\]$/, ''); u[name] = gl.getUniformLocation(p, name);
+    if (name in SAMPLERS) gl.uniform1i(u[name], SAMPLERS[name]);
+  }
+  return { p, u };
+}
+function target(w, h) {
+  const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+  gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  return { t, f, w, h };
+}
+function dataTex(unit, w, h, wrap) {
+  const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, w, h, 0, gl.RED, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.activeTexture(gl.TEXTURE0); return t;
+}
+function uploadCanvas(unit, t, el, flip) {
+  gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
+  if (flip) gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, gl.RED, gl.UNSIGNED_BYTE, el);
+  if (flip) gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.activeTexture(gl.TEXTURE0);
+}
+const quadVAO = gl.createVertexArray();
+const QUAD = '#version 300 es\nvoid main(){ vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2)); gl_Position=vec4(p*2.-1.,0.,1.); }';
+// the last thing every look does to its colour: a soft shoulder, the text, the master light, a grain of dither
+const TAIL = `
+uniform sampler2D uText; uniform float uTextAmt,uDim,uFrame,uLift;
+vec4 fin(vec3 c, vec2 uv){
+  c=1.-exp(-max(c,0.)*(1.25+2.4*uLift));                             // bright stays coloured, never white
+  c=pow(c,vec3(1.-.45*uLift));                                       // claridad: more light in the mid tones, for a wall that drinks it (wood)
+  float m=texture(uText,vec2(uv.x,1.-uv.y)).r*uTextAmt;
+  c=mix(c,vec3(.93,.90,.84)-c*.85,m);                                // letters cut through whatever is behind them
+  c*=uDim;
+  c+=(fract(sin(dot(gl_FragCoord.xy+uFrame,vec2(12.9898,78.233)))*43758.5453)-.5)/255.;
+  return vec4(c,1.);
+}`;
+const HEAD = `#version 300 es
+precision highp float; precision highp int;
+uniform vec2 uRes; uniform float uT,uD,uBeat,uBass,uMid,uHigh,uLevel,uGain,uWarp,uSeed,uVidOn,uVidAsp;
+uniform vec3 uA,uB,uC; uniform sampler2D uVid;
+out vec4 o;
+#define P ((gl_FragCoord.xy-.5*uRes)/uRes.y)
+#define UV (gl_FragCoord.xy/uRes)
+float hash(vec2 p){ uvec2 q=(uvec2(ivec2(floor(p)))&255u)*uvec2(1597334673u,3812015801u); uint n=(q.x^q.y)*1597334673u; n^=n>>15; return float(n>>8)*(1./16777216.); }
+float h1(float x){ return hash(vec2(x*13.+5.,x*7.+91.)); }
+vec2 h2(vec2 p){ return vec2(hash(p),hash(p+vec2(37.,113.))); }
+float noise(vec2 p){ vec2 i=floor(p),f=fract(p); vec2 u=f*f*(3.-2.*f); return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),u.x),u.y); }
+float fbm(vec2 p){ float a=.5,s=0.; for(int i=0;i<5;i++){ s+=a*noise(p); p=p*2.+vec2(17.13,9.27); a*=.5; } return s; }
+float fbm3(vec2 p){ float a=.5,s=0.; for(int i=0;i<3;i++){ s+=a*noise(p); p=p*2.+vec2(17.13,9.27); a*=.5; } return s*1.14; }
+vec3 pal(float x){ x=fract(x)*3.; return x<1.?mix(uA,uB,x):x<2.?mix(uB,uC,x-1.):mix(uC,uA,x-2.); }
+mat2 rot(float a){ float c=cos(a),s=sin(a); return mat2(c,-s,s,c); }
+#define SD (floor(vec2(h1(uSeed),h1(uSeed+3.))*200.)+.37)
+` + TAIL;
+
+// ---------- looks: one fragment shader each; the four organisms are the moho simulation with different habits ----------
+const LOOKS = [
+  { name: 'fluid', fs: `
+void main(){
+  vec2 q=P*1.6+SD; float t=uD;
+  vec2 w1=vec2(fbm(q+vec2(0.,8.*t)),fbm(q+vec2(5.2,-8.*t)));
+  vec2 w2=vec2(fbm(q+4.*w1+vec2(1.7,9.2)+4.*t),fbm(q+4.*w1+vec2(8.3,2.8)-3.*t));
+  float f=fbm(q+(1.5+4.*uWarp)*w2+uBass*uGain*.3);
+  vec3 col=pal(f*1.5+uMid*uGain*.2+t)*pow(f,3.4)*(4.7+2.4*uLevel*uGain);
+  col+=uC*pow(w2.x,5.)*(1.+2.5*uHigh*uGain)*1.4;
+  o=fin(col,UV);
+}` },
+  { name: 'roots', moho: 'roots' },
+  { name: 'mycelium', moho: 'mycelium' },
+  { name: 'veins', moho: 'veins' },
+  { name: 'coral', moho: 'coral' },
+  { name: 'contours', fs: `
+void main(){
+  vec2 q=P*1.15+SD;
+  float h=.62*fbm(q+vec2(2.*uD,uD))+.38*fbm(q*1.7+vec2(31.,7.)-vec2(uD,3.*uD));   // two fields sliding past each other: the land itself changes
+  h+=.035*uBass*uGain;
+  float n=floor(mix(14.,46.,uWarp)), v=h*n, w=fwidth(v)+1e-5;
+  float d=(.5-abs(fract(v)-.5))/w;                                   // pixels to the nearest contour
+  float idx=step(mod(floor(v+.5),5.),.5);                            // every fifth line is drawn heavier
+  float line=1.-smoothstep(.7+idx*.7,1.9+idx*1.1,d);
+  vec3 ink=pal(h*.9+uD);
+  vec3 col=ink*line*(.50+.5*idx)*(.8+.6*uLevel*uGain);
+  col+=pal(floor(v)/n*.9+uD)*(.03+.24*h*h)*(1.+.8*uBeat*uGain);      // the ground between the lines, lighter the higher
+  o=fin(col,UV);
+}` },
+  { name: 'wood', fs: `
+void main(){
+  vec2 p=P, q=p+SD;
+  vec2 c1=.26*vec2(sin(uT*.011),cos(uT*.013)), c2=vec2(.62,.12)+.24*vec2(cos(uT*.009),sin(uT*.014)), c3=vec2(-.66,-.16)+.2*vec2(sin(uT*.007+2.),cos(uT*.012));
+  float w=fbm(q*1.5+vec2(uD,0.)), g=fbm3(vec2(q.x*3.,q.y*26.)+w*3.);
+  float k=.2, d=-log(exp(-length(p-c1)/k)+exp(-(length(p-c2)+.07)/k)+exp(-(length(p-c3)+.12)/k))*k;   // three hearts whose rings run into each other
+  d+=(w-.5)*(.08+.34*uWarp);
+  float ph=d*150.+9.*noise(vec2(d*9.,3.5))-uT*.12-uBass*uGain*.9;      // rings of uneven width, always growing outwards
+  float s=fract(ph/6.2831853), ring=smoothstep(0.,.16,s)*(1.-.62*s);  // a dark line, then wood that pales towards the next one
+  vec3 col=mix(uB*.10,pal(.02+w*.22+uD)*.62,ring)*(.72+.5*g);
+  col+=uC*pow(ring,5.)*.10*(1.+2.*uHigh*uGain)+uA*.05*uLevel*uGain;
+  o=fin(col,UV);
+}` },
+  { name: 'mud', fs: `
+vec3 vor(vec2 x){                                                    // distance to the nearest point, to the edge between the two nearest, and the cell's own number
+  vec2 n=floor(x), f=fract(x), id=vec2(0.); float d1=8., d2=8.;
+  for(int j=-1;j<=1;j++) for(int i=-1;i<=1;i++){
+    vec2 g=vec2(float(i),float(j)), h=h2(n+g), r=g+.5+.36*sin(uT*.03+6.2831853*h)-f; float d=dot(r,r);
+    if(d<d1){ d2=d1; d1=d; id=n+g; } else if(d<d2) d2=d;
+  }
+  return vec3(sqrt(d1),sqrt(d2)-sqrt(d1),hash(id+.5));
+}
+void main(){
+  vec2 q=P*(2.6+3.*uWarp)+SD; q+=(vec2(fbm3(q*.9),fbm3(q*.9+19.))-.5)*.8;
+  vec3 v=vor(q), v2=vor(q*3.1+7.);
+  float open=.03+.045*uBass*uGain+.012*sin(uT*.05+v.z*6.);
+  float crack=1.-smoothstep(open*.35,open,v.y);
+  float hair=(1.-smoothstep(0.,.06,v2.y))*smoothstep(.05,.3,v.y)*.45;
+  float tex=fbm(q*5.), bevel=smoothstep(0.,.4,v.y);
+  vec3 plate=pal(v.z*.3+tex*.12+uD)*(.05+.30*bevel)*(.6+.8*tex)*(1.-hair);
+  vec3 glow=uC*crack*(.35+.7*uLevel*uGain+.4*uBeat*uGain)+uA*exp(-v.y*16.)*.16*(.4+uBass*uGain);
+  o=fin(plate*(1.-crack)+glow,UV);
+}` },
+  { name: 'sand', fs: `
+void main(){
+  vec2 p=P, q=p*1.3+SD;
+  float big=fbm(q*.9+vec2(uD,0.)), bend=fbm3(q*2.3+vec2(0.,2.*uD));
+  vec2 dir=normalize(vec2(1.,.1+.9*uWarp));
+  float x=dot(p,dir)*64.+big*30.+bend*8.-uT*.11-uBass*uGain*.8;
+  float lit=.5+.5*cos(x), crest=smoothstep(.55,1.,sin(x));
+  float amp=smoothstep(.28,.62,big);                                 // the ripple is strong on the dunes and fades in the hollows
+  vec3 col=pal(big*.55+.05+uD)*(.05+.42*mix(.45,lit,amp))*(.45+1.1*big);
+  col+=uC*pow(crest,3.)*amp*.13*(1.+2.5*uHigh*uGain)+uA*.04*uLevel*uGain;
+  o=fin(col,UV);
+}` },
+  { name: 'lichen', fs: `
+void main(){
+  vec2 q=P*(2.3+2.2*uWarp)+SD, n=floor(q), f=fract(q);
+  float rag=fbm(q*5.)-.5, rag2=fbm3(q*15.+3.)-.5, best=9., id=0., dd=0.;
+  for(int j=-1;j<=1;j++) for(int i=-1;i<=1;i++){
+    vec2 g=vec2(float(i),float(j)), h=h2(n+g); float hh=hash(n+g+71.);
+    float R=(.30+.36*hh)*(.60+.40*sin(uT*(.010+.004*floor(hh*5.))+hh*40.)+.10*uBass*uGain);   // every colony grows and recedes on its own clock
+    float d=length(g+.2+.6*h-f)+rag*.24+rag2*.06, s=d/R;
+    if(s<best){ best=s; id=hh; dd=d; }
+  }
+  float rock=fbm(q*3.+11.), inside=1.-smoothstep(.93,1.,best);
+  float rings=.5+.5*sin(dd*58.-uT*.04+id*20.);
+  float rim=smoothstep(.62,.93,best)*inside;                         // the pale edge is where it is growing
+  float dots=smoothstep(.72,.8,noise(q*34.))*(1.-rim);
+  vec3 body=pal(id*.9+uD)*mix(.16,.5,rings)*(.3+.7*best)+uC*dots*.12;
+  vec3 col=mix(uB*(.02+.07*rock),body+uC*rim*(.34+.5*uLevel*uGain+.3*uBeat*uGain),inside);
+  o=fin(col,UV);
+}` },
+  { name: 'forest', key: 'q', fs: `
+// a walk past a misty low-poly wood that never ends: six layers of straight-edged hills and flat-shaded trees, far to near
+float lin(float x){ float i=floor(x); return mix(hash(vec2(i,7.)),hash(vec2(i+1.,7.)),fract(x)); }
+float hill(float x,float f){ return .55*lin(x+f*31.)+.30*lin(x*2.+f*17.+.5)+.15*lin(x*4.+f*5.); }
+void main(){
+  vec2 p=P;
+  vec3 haze=mix(vec3(.80,.88,.94),uC,.22), col=mix(haze,mix(vec3(.52,.72,.95),uC,.2),smoothstep(-.12,.5,p.y));
+  vec3 leaf=mix(vec3(.12,.36,.15),uA*.55,.28), turf=mix(vec3(.17,.44,.20),uA*.6,.25), bark=mix(vec3(.34,.20,.12),uB,.35);
+  for(int i=0;i<6;i++){
+    float fi=float(i), t=fi/5., s=mix(7.,1.6,t), k=floor(1.5+7.*t*t);            // near layers slide past faster
+    float xs=p.x*s+k*uD, base=mix(.10,-.40,t), amp=mix(.05,.15,t), gy=base+amp*(hill(xs,fi)-.5);
+    vec3 c=vec3(0.); float a=0.;
+    if(p.y<gy){ c=turf*(.72+.5*t)*(.8+.35*smoothstep(gy-.3,gy,p.y))*(.92+.16*hash(floor(vec2(xs*3.,p.y*s*5.)))); a=1.; }
+    float xt=xs*3., c0=floor(xt);
+    for(int j=-1;j<=1;j++){
+      float cc=c0+float(j), h=hash(vec2(cc,fi*13.+1.)); if(h<.32) continue;
+      float cx=cc+.5+(hash(vec2(cc,fi*13.+2.))-.5)*.6, by=base+amp*(hill(cx/3.,fi)-.5)-.004;
+      float H=(.75+.7*hash(vec2(cc,fi*13.+3.)))*.34/s*1.6, v=(p.y-by)/H, u=(xt-cx)/(3.*s)/H;
+      if(v<0.||v>1.05||abs(u)>.4) continue;
+      u-=.035*sin(uT*.6+cc)*v*v*(1.+uBass*uGain);                                  // the tops sway
+      float in_=0.;
+      if(h>.66){ for(int n=0;n<3;n++){ float lo=.24+.22*float(n), hi=lo+.42, w=.27-.05*float(n); if(v>lo&&v<hi&&abs(u)<w*(hi-v)/(hi-lo)) in_=1.; } }
+      else { vec2 q=abs(vec2(u,v-.68)); if(max(max(q.x,q.y),(q.x+q.y)*.72)<.30) in_=1.; }
+      if(in_>.5){ c=leaf*(.75+.6*h)*(u<0.?1.18:.80)*(.86+.28*hash(floor(vec2(u,v)*8.)+cc)); a=1.; }
+      else if(abs(u)<.035&&v<.5){ c=bark*(u<0.?1.1:.8); a=1.; }
+    }
+    float fog=mix(.80,.0,sqrt(t));
+    col=mix(col,mix(c,haze,fog),a);
+    col=mix(col,haze,(.42+.25*uLevel*uGain)*(1.-t)*smoothstep(.25,.8,fbm3(vec2(p.x*1.3+k*uD,p.y*7.+fi*3.))));   // mist lying between the layers
+  }
+  o=fin(col*.92,UV);
+}` },
+  { name: 'video', key: 'v', video: true, fs: `
+vec3 vid(vec2 uv){                                                   // the video fills the picture, cropped rather than squeezed
+  float asp=uRes.x/uRes.y; vec2 s=uVidAsp>asp?vec2(asp/uVidAsp,1.):vec2(1.,uVidAsp/asp), c=(uv-.5)*s+.5;
+  return texture(uVid,vec2(c.x,1.-c.y)).rgb;
+}
+float lum(vec2 uv){ return uVidOn>.5?dot(vid(uv),vec3(.3,.6,.1)):fbm(uv*vec2(uRes.x/uRes.y,1.)*1.5+SD+vec2(2.*uD,uD)); }   // no video yet: a field of its own
+void main(){
+  vec2 q=P*2.+SD, w=(vec2(fbm3(q+vec2(0.,4.*uD)),fbm3(q+vec2(7.,-3.*uD)))-.5)*(.01+.12*uWarp)*(1.+uBass*uGain);
+  vec2 px=1.5/uRes; float l=lum(UV+w);
+  float l2=.25*(lum(UV+w+vec2(px.x,0.))+lum(UV+w-vec2(px.x,0.))+lum(UV+w+vec2(0.,px.y))+lum(UV+w-vec2(0.,px.y)));
+  float n=9., v=mix(l,l2,.7)*n, fw=fwidth(v)+.02, d=(.5-abs(fract(v)-.5))/fw;
+  float line=1.-smoothstep(.5,1.6,d);                                // drawn on top: the contour lines of the video's own light
+  float grain=fbm3(q*9.+vec2(3.*uD,0.));
+  vec3 col=pal(l*.7+uD)*(.05+1.1*l*l)*(.8+.4*grain);                 // the video itself, in the colours of the palette
+  col+=uC*line*(.30+.5*uLevel*uGain+.3*uBeat*uGain);
+  o=fin(col,UV);
+}` },
+  // ---------- the loud bank: ten that are not calm at all. Still no flashing: a strobe faster than three a second is a seizure risk ----------
+  { name: 'tunnel', bank: 1, fs: `
+void main(){
+  vec2 p=P*rot(.6*sin(uT*.05)); p+=.08*vec2(sin(uT*.31),cos(uT*.23));
+  float k=mix(2.,8.,uWarp), r=pow(pow(abs(p.x),k)+pow(abs(p.y),k),1./k), a=atan(p.y,p.x)/6.2831853;
+  float z=.9/max(r,1e-3)+uD*96., ring=floor(z), fz=fract(z), fa=fract(a*24.+ring*.5);
+  float on=step(.62-.3*uBass*uGain,hash(vec2(floor(a*24.+ring*.5),ring)));
+  float edge=smoothstep(0.,.08,fz)*smoothstep(1.,.92,fz), cell=smoothstep(0.,.06,fa)*smoothstep(1.,.94,fa);
+  vec3 col=pal(ring*.0625+uD)*on*edge*cell*(.9+uLevel*uGain)+uC*(1.-edge)*(.07+.4*uBeat*uGain);
+  o=fin(col*smoothstep(.02,.25,r),UV);
+}` },
+  { name: 'cavern', bank: 1, fs: `
+float map(vec3 p,float z0){
+  p.xy*=rot((p.z-z0)*.3*(uWarp-.5));
+  float g=abs(dot(sin(p*1.3),cos(p.zxy*1.3)))/1.3-(.06+.09*uBass*uGain);
+  return max(g,.5-length(p.xy))*.75;
+}
+void main(){
+  float z0=uT*1.5; vec3 ro=vec3(0.,0.,z0), rd=normalize(vec3(P,.85)); rd.xy*=rot(uT*.07);
+  float d=0.,m=1.,glow=0.; vec3 q=ro;
+  for(int i=0;i<52;i++){ q=ro+rd*d; m=map(q,z0); glow+=.012/(.012+abs(m)); if(m<.003||d>14.) break; d+=m; }
+  vec3 col=vec3(0.);
+  if(d<14.){
+    vec2 e=vec2(.01,0.);
+    vec3 n=normalize(vec3(map(q+e.xyy,z0)-map(q-e.xyy,z0),map(q+e.yxy,z0)-map(q-e.yxy,z0),map(q+e.yyx,z0)-map(q-e.yyx,z0)));
+    float dif=max(dot(n,normalize(vec3(.3,.5,-.6))),0.), fr=pow(1.-max(dot(n,-rd),0.),3.);
+    col=(pal(d*.07+uD*2.)*(.05+1.1*dif*dif)+uC*fr*(.5+uHigh*uGain))*exp(-d*.16);
+  }
+  o=fin(col+uB*glow*.006*(.5+1.5*uBeat*uGain),UV);
+}` },
+  { name: 'kaleido', bank: 1, fs: `
+void main(){
+  vec2 p=P*1.7; vec3 col=vec3(0.);
+  for(int i=0;i<5;i++){
+    float f=float(i); p=abs(p)-.42-.12*sin(uT*.07+f); p*=rot(uT*.04+f*.6+.8*uWarp); p*=1.22;
+    col+=pal(f*.17+length(p)*.2+2.*uD)*.012/(abs(p.x*p.y)+.012)*(.5+uBass*uGain);
+  }
+  o=fin(col*.34,UV);
+}` },
+  { name: 'acid', bank: 1, fs: `
+void main(){
+  vec2 p=P*3.;
+  for(int i=1;i<5;i++){ float f=float(i); p+=vec2(sin(p.y*f*.9+uT*.21+f),cos(p.x*f*.8+uT*.17+f*1.7))*(.4+.8*uWarp)/f*(1.+.4*uBass*uGain); }
+  float v=sin(p.x+p.y)+sin(length(p)*1.3);
+  vec3 col=mix(.5+.5*cos(6.2831853*(v*.35+vec3(0.,.33,.67))+uT*.1),pal(v*.3+uD),.5);
+  o=fin(col*(.55+.3*uLevel*uGain),UV);
+}` },
+  { name: 'eyes', bank: 1, fs: `
+void main(){
+  vec2 q=P*(2.6+3.5*uWarp)+SD, n=floor(q), f=fract(q)-.5; float h=hash(n), g=hash(n+9.);
+  vec2 look=.15*vec2(sin(uT*(.2+.1*floor(h*4.))+h*30.),cos(uT*(.15+.1*floor(g*4.))+g*30.));
+  float blink=smoothstep(.97,1.,sin(uT*(.3+.1*floor(g*5.))+h*50.));  // every eye blinks on its own clock
+  float eye=1.-smoothstep(.33,.36,length(vec2(f.x*.82,f.y*(1.35+blink*30.))));
+  float d=length(f-look), pr=.075*(1.5-.8*uBass*uGain);
+  float iris=1.-smoothstep(.17,.19,d), pupil=1.-smoothstep(pr,pr+.015,d);
+  float rays=.55+.45*sin(atan(f.y-look.y,f.x-look.x)*18.+h*6.);
+  vec3 col=vec3(.86,.83,.76)*eye*(1.-iris)*(.95-1.1*length(f));
+  col+=pal(h+uD)*iris*rays*eye*(1.-pupil)*(1.2-3.*d);
+  col+=vec3(.9)*eye*(1.-smoothstep(.0,.035,length(f-look-vec2(.05,.06))));
+  o=fin(col+uB*.10*(1.-eye)*(.6+uBeat*uGain),UV);
+}` },
+  { name: 'spiral', bank: 1, fs: `
+void main(){
+  vec2 p=P; vec3 col=vec3(0.);
+  for(int i=0;i<3;i++){
+    float f=float(i); vec2 d=p-.45*vec2(sin(uT*.05+f*2.1),cos(uT*.07+f*1.3)); float r=length(d);
+    float s=sin(atan(d.y,d.x)*(3.+f)+log(r+.02)*(5.+9.*uWarp)-uT*(.6+.3*f)-2.*uBass*uGain);
+    col+=pal(f*.33+r*.4+uD)*smoothstep(-.2,.9,s)/(1.+3.*r);
+  }
+  o=fin(col*.8,UV);
+}` },
+  { name: 'moiré', bank: 1, fs: `
+void main(){
+  vec2 p=P; float v=0.;
+  for(int i=0;i<3;i++){ float f=float(i); v+=sin(length(p-.5*vec2(sin(uT*.11+f*2.),cos(uT*.13+f*4.)))*(60.+50.*uWarp)-uT*.8); }
+  vec3 col=pal(v*.16+length(p)*.3+uD)*(.5+.5*sin(v*2.2+uBass*uGain*3.));
+  o=fin(col*.8,UV);
+}` },
+  { name: 'julia', bank: 1, fs: `
+void main(){
+  vec2 z=P*2.5*rot(uT*.02), c=vec2(-.78+.12*sin(uT*.05),.16+.14*cos(uT*.037))+.03*uBass*uGain*(uWarp-.3); float it=0.;
+  for(int i=0;i<56;i++){ z=vec2(z.x*z.x-z.y*z.y,2.*z.x*z.y)+c; if(dot(z,z)>64.) break; it+=1.; }
+  float sm=it-log2(max(log2(dot(z,z))*.5,1e-3))+3.;
+  vec3 col=it>55.?uB*.12:pal(sm*.11+uD*2.)*(.30+.70*pow(.5+.5*sin(sm*1.3),2.));
+  o=fin(col,UV);
+}` },
+  { name: 'lava', bank: 1, fs: `
+void main(){
+  vec2 p=P; float f=0.;
+  for(int i=0;i<7;i++){ float k=float(i); vec2 c=vec2(.75*sin(uT*(.05+.01*k)+k*2.4),.42*cos(uT*(.04+.013*k)+k*1.7)); float r=.10+.05*h1(k)+.04*uBass*uGain; f+=r*r/(dot(p-c,p-c)+1e-4); }
+  float band=.5+.5*sin(f*(8.+16.*uWarp)-uT*.5);
+  vec3 col=pal(f*.22+uD)*smoothstep(.55,1.1,f)*(.45+.55*band)+uC*(1.-smoothstep(.0,.08,abs(f-1.)))*.6+uB*.07*f;
+  o=fin(col,UV);
+}` },
+  { name: 'truchet', bank: 1, fs: `
+void main(){
+  vec2 q=P*(4.+7.*uWarp)*rot(.3*sin(uT*.03))+SD, n=floor(q), f=fract(q); float h=hash(n);
+  if(hash(n+13.*floor(uD*24.+h))>.5) f.x=1.-f.x;                    // tiles turn over, one here, one there
+  float d=min(abs(length(f)-.5),abs(length(f-1.)-.5)), w=.15+.1*uBass*uGain;
+  vec3 col=pal(h*.15+length(P)*.5+3.*uD)*smoothstep(w,w-.03,d)*(.55+.45*sin(d*80.+uT*.7));
+  o=fin(col+uC*.5*(1.-smoothstep(0.,.02,abs(d-w)))*uBeat*uGain,UV);
+}` },
+];
+for (const L of LOOKS) if (L.fs) L.pr = program(QUAD, HEAD + L.fs);
+const VIDEO = LOOKS.findIndex(L => L.video), bankOf = i => LOOKS[i].bank | 0;
+
+// ---------- mapping: the finished picture cut into four-cornered surfaces, each pinned to something real in the room ----------
+// Corners are fractions of the window, from the top left, in the order top-left, top-right, bottom-right, bottom-left.
+// The map belongs to the machine that projects (localStorage 'show.map'), not to the console's state, and travels as a file.
+const MAPPER = program(QUAD, `#version 300 es
+precision highp float;
+uniform sampler2D uImg; uniform vec2 uRes; uniform mat3 uH[8]; uniform vec4 uOpt[8]; uniform int uCount; uniform float uGrid;
+out vec4 o;
+void main(){
+  vec2 uv=gl_FragCoord.xy/uRes, p=vec2(uv.x,1.-uv.y); vec3 c=vec3(0.);
+  for(int i=0;i<8;i++){
+    if(i>=uCount) break;
+    vec3 q=uH[i]*vec3(p,1.); if(q.z<=1e-6) continue;
+    vec2 st=q.xy/q.z, e=min(st,1.-st); float d=min(e.x,e.y); if(d<0.) continue;
+    vec3 pic=texture(uImg, uOpt[i].x>.5 ? uv : vec2(st.x,1.-st.y)).rgb;       // ventana: what passes behind. encaja: the whole picture
+    if(uGrid>.5){
+      vec2 g=abs(fract(st*8.+.5)-.5); float line=1.-smoothstep(.02,.045,min(g.x,g.y));
+      float diag=1.-smoothstep(.003,.007,min(abs(st.x-st.y),abs(st.x+st.y-1.)));
+      float edge=1.-smoothstep(0.,.012,d);
+      vec3 tint=.5+.5*cos(6.2831853*(float(i)*.19+vec3(0.,.33,.67)));
+      pic=pic*.3+tint*(.10+.55*line+.35*diag); pic=mix(pic, uOpt[i].y>.5 ? vec3(1.) : tint, edge);
+    }
+    c=pic;
+  }
+  o=vec4(c,1.);
+}`);
+gl.useProgram(MAPPER.p); gl.uniform1i(MAPPER.u.uImg, 0);
+const Mapa = (() => {
+  let surf = [], editing = false, grid = true, sel = -1, corner = -1, drag = null, post = null, sure = 0;
+  const cv = $('mapui'), cx = cv.getContext('2d'), bar = $('mapbar'), Hm = new Float32Array(72), opt = new Float32Array(32);
+  const valid = o => (o && Array.isArray(o.s) ? o.s : []).filter(q => q && Array.isArray(q.c) && q.c.length === 4 && q.c.every(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1])))
+    .slice(0, 8).map(q => ({ c: q.c.map(p => [clamp(+p[0], -.5, 1.5), clamp(+p[1], -.5, 1.5)]), fit: q.fit !== false }));
+  const load = () => { try { surf = valid(JSON.parse(localStorage.getItem('show.map') || 'null')); } catch (e) { surf = []; } };
+  const store = () => { try { localStorage.setItem('show.map', JSON.stringify({ v: 1, s: surf })); } catch (e) {} };
+  // screen point -> place inside the surface (0..1): the inverse of the square-to-quad projection, column by column for GLSL
+  function inverse(c, out, at) {
+    const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = c;
+    const dx1 = x1 - x2, dx2 = x3 - x2, dy1 = y1 - y2, dy2 = y3 - y2, sx = x0 - x1 + x2 - x3, sy = y0 - y1 + y2 - y3;
+    const den = dx1 * dy2 - dx2 * dy1; let g = 0, h = 0;
+    if (Math.abs(den) > 1e-9) { g = (sx * dy2 - dx2 * sy) / den; h = (dx1 * sy - sx * dy1) / den; }
+    const a = x1 - x0 + g * x1, b = x3 - x0 + h * x3, cc = x0, d = y1 - y0 + g * y1, e = y3 - y0 + h * y3, f = y0;
+    const det = a * (e - f * h) - b * (d - f * g) + cc * (d * h - e * g), k = Math.abs(det) < 1e-12 ? 0 : 1 / det;
+    out[at] = (e - f * h) * k; out[at + 3] = (cc * h - b) * k; out[at + 6] = (b * f - cc * e) * k;
+    out[at + 1] = (f * g - d) * k; out[at + 4] = (a - cc * g) * k; out[at + 7] = (cc * d - a * f) * k;
+    out[at + 2] = (d * h - e * g) * k; out[at + 5] = (b * g - a * h) * k; out[at + 8] = (a * e - b * d) * k;
+  }
+  const inside = (c, x, y) => { let on = false; for (let i = 0, j = 3; i < 4; j = i++) if ((c[i][1] > y) !== (c[j][1] > y) && x < (c[j][0] - c[i][0]) * (y - c[i][1]) / (c[j][1] - c[i][1]) + c[i][0]) on = !on; return on; };
+  function paint() {
+    if (!editing) return; const W = cv.width, H = cv.height, d = W / Math.max(1, innerWidth); cx.clearRect(0, 0, W, H); cx.lineJoin = 'round';
+    surf.forEach((q, i) => {
+      const P = q.c.map(p => [p[0] * W, p[1] * H]);
+      cx.beginPath(); P.forEach((p, j) => j ? cx.lineTo(p[0], p[1]) : cx.moveTo(p[0], p[1])); cx.closePath();
+      cx.lineWidth = (i === sel ? 3 : 1.5) * d; cx.strokeStyle = i === sel ? '#fff' : 'rgba(255,255,255,.6)'; cx.stroke();
+      const mx = (P[0][0] + P[1][0] + P[2][0] + P[3][0]) / 4, my = (P[0][1] + P[1][1] + P[2][1] + P[3][1]) / 4;
+      cx.font = `800 ${30 * d}px ui-rounded, -apple-system, Arial, sans-serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      cx.lineWidth = 5 * d; cx.strokeStyle = '#000'; cx.strokeText(i + 1, mx, my); cx.fillStyle = '#fff'; cx.fillText(i + 1, mx, my);
+      P.forEach((p, j) => {
+        const hot = i === sel && j === corner;
+        if (hot) { cx.beginPath(); cx.moveTo(p[0] - 46 * d, p[1]); cx.lineTo(p[0] + 46 * d, p[1]); cx.moveTo(p[0], p[1] - 46 * d); cx.lineTo(p[0], p[1] + 46 * d); cx.lineWidth = 1 * d; cx.strokeStyle = '#fff'; cx.stroke(); }
+        cx.beginPath(); cx.arc(p[0], p[1], (hot ? 11 : 8) * d, 0, 6.2832); cx.fillStyle = hot ? '#27e6c0' : '#000'; cx.fill(); cx.lineWidth = 2 * d; cx.strokeStyle = '#fff'; cx.stroke();
+      });
+    });
+  }
+  function tools() {
+    const q = surf[sel];
+    for (const b of bar.querySelectorAll('button')) {
+      const m = b.dataset.m;
+      if (m === 'fit') { b.textContent = q && !q.fit ? 'window' : 'fit'; b.disabled = !q; }
+      if (m === 'del') b.disabled = !q;
+      if (m === 'grid') b.classList.toggle('on', grid);
+      if (m === 'clear') b.textContent = performance.now() < sure ? 'sure? press again' : 'clear all';
+    }
+    $('maphint').textContent = !surf.length ? 'no surfaces yet: press + surface'
+      : corner >= 0 ? 'corner selected: arrow keys move it one step (ten with shift) · tab goes to the next corner'
+      : 'drag each corner to the real corner · drag from inside to move the whole surface';
+  }
+  function size() { const d = Math.min(devicePixelRatio || 1, 2); cv.width = Math.round(innerWidth * d); cv.height = Math.round(innerHeight * d); paint(); }
+  function move(dx, dy, all) { const q = surf[sel]; if (!q) return; for (const p of (all || corner < 0 ? q.c : [q.c[corner]])) { p[0] = clamp(p[0] + dx, -.5, 1.5); p[1] = clamp(p[1] + dy, -.5, 1.5); } paint(); }
+  const act = {
+    add() { if (surf.length >= 8) return; const o = .04 * surf.length; surf.push({ c: [[.2 + o, .2 + o], [.6 + o, .2 + o], [.6 + o, .6 + o], [.2 + o, .6 + o]], fit: true }); sel = surf.length - 1; corner = -1; },
+    del() { if (surf[sel]) { surf.splice(sel, 1); sel = Math.min(sel, surf.length - 1); corner = -1; } },
+    fit() { if (surf[sel]) surf[sel].fit = !surf[sel].fit; },
+    grid() { grid = !grid; },
+    clear() { if (performance.now() < sure) { surf = []; sel = corner = -1; sure = 0; } else { sure = performance.now() + 3000; setTimeout(tools, 3100); } },
+    bar() { bar.classList.toggle('up'); },
+    save() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ v: 1, s: surf }, null, 1)], { type: 'application/json' })); a.download = 'show-map.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); },
+    load() { $('mapfile').value = ''; $('mapfile').click(); },
+    done() { toggle(false); },
+  };
+  function did() { store(); tools(); paint(); }
+  bar.addEventListener('click', e => { const b = e.target.closest('button'); if (!b || !act[b.dataset.m]) return; act[b.dataset.m](); b.blur(); if (editing) did(); });
+  $('mapfile').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; try { const got = valid(JSON.parse(await f.text())); if (got.length) { surf = got; sel = 0; corner = -1; did(); } else $('maphint').textContent = 'that file has no map in it'; } catch (x) { $('maphint').textContent = 'that file could not be read'; } });
+  const at = e => [e.clientX / innerWidth, e.clientY / innerHeight];
+  cv.addEventListener('pointerdown', e => {
+    try { cv.setPointerCapture(e.pointerId); } catch (x) {}
+    const [x, y] = at(e); let best = null, bd = 28;
+    surf.forEach((q, i) => q.c.forEach((p, j) => { const d = Math.hypot((p[0] - x) * innerWidth, (p[1] - y) * innerHeight) - (i === sel ? 6 : 0); if (d < bd) { bd = d; best = [i, j]; } }));
+    if (best) { sel = best[0]; corner = best[1]; drag = { x, y, all: false }; }
+    else { let hit = -1; surf.forEach((q, i) => { if (inside(q.c, x, y)) hit = i; }); sel = hit; corner = -1; drag = hit >= 0 ? { x, y, all: true } : null; }
+    tools(); paint();
+  });
+  cv.addEventListener('pointermove', e => { if (!drag) return; const [x, y] = at(e); move(x - drag.x, y - drag.y, drag.all); drag.x = x; drag.y = y; });
+  const up = () => { if (drag) { drag = null; store(); } };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  function key(e, k) {
+    const n = e.shiftKey ? 10 : 1; let used = true;
+    if (k === 'arrowleft') move(-n / innerWidth, 0); else if (k === 'arrowright') move(n / innerWidth, 0);
+    else if (k === 'arrowup') move(0, -n / innerHeight); else if (k === 'arrowdown') move(0, n / innerHeight);
+    else if (k === 'tab') { if (sel < 0 && surf.length) sel = 0; corner = corner < 0 ? 0 : (corner + (e.shiftKey ? 3 : 1)) % 4; }
+    else if (k === 'n') act.add(); else if (k === 'backspace' || k === 'delete') act.del();
+    else if (k === 'g') act.grid(); else if (k === 'v') act.fit();
+    else if (k === 'escape' || k === 'enter' || k === 'p') return e.preventDefault(), toggle(false);
+    else used = false;
+    if (used) { e.preventDefault(); did(); }
+  }
+  function toggle(v) {
+    editing = v === undefined ? !editing : !!v;
+    if (editing && !surf.length) { surf = [{ c: [[.05, .05], [.95, .05], [.95, .95], [.05, .95]], fit: true }]; sel = 0; corner = -1; }
+    if (editing && sel < 0 && surf.length) sel = 0;
+    cv.hidden = bar.hidden = !editing; document.body.classList.toggle('mapping', editing);
+    if (editing) { grid = true; size(); tools(); } else { drag = null; store(); }
+    ui();
+  }
+  addEventListener('resize', () => { if (editing) size(); });
+  addEventListener('storage', e => { if (e.key === 'show.map' && !editing) load(); });       // the other window changed the map
+  load();
+  return {
+    toggle, key, get editing() { return editing; }, get count() { return surf.length; }, get surf() { return surf; },
+    set(list) { surf = valid({ s: list }); store(); },
+    on: () => editing || (surf.length > 0 && (OUT || document.body.classList.contains('quiet'))),
+    buf(w, h) { if (!post || post.w !== w || post.h !== h) { if (post) { gl.deleteTexture(post.t); gl.deleteFramebuffer(post.f); } post = target(w, h, false); } return post; },
+    draw(tex, w, h) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, w, h); gl.useProgram(MAPPER.p); const u = MAPPER.u;
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
+      surf.forEach((q, i) => { inverse(q.c, Hm, i * 9); opt[i * 4] = q.fit ? 0 : 1; opt[i * 4 + 1] = editing && i === sel ? 1 : 0; });
+      gl.uniform2f(u.uRes, w, h); gl.uniform1i(u.uCount, surf.length); gl.uniformMatrix3fv(u.uH, false, Hm); gl.uniform4fv(u.uOpt, opt);
+      gl.uniform1f(u.uGrid, editing && grid ? 1 : 0); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    },
+  };
+})();
+
+// ---------- moho: the slime mold from moho (moho.javierr.com). Four of the ten looks are this one simulation with different habits ----------
+// Changes here that are not in moho: grav (agents lean one way and are reborn below when they leave the top: roots),
+// the slow sway of the sensors, and the shared TAIL. A fix to the simulation itself belongs in both places.
+const Moho = (() => {
+  const PRESETS = [
+    { n: 'net',     sa: 22.5, ra: 45, so: 9,  ss: 1.0, dep: .50, dec: .900, dif: .50, rep: .60, dso: 0,   dss: 0,   jit: .00, grav: 0 },   // only while a word is growing
+    { n: 'roots',   sa: 26,   ra: 20, so: 20, ss: 1.5, dep: .42, dec: .955, dif: .28, rep: .15, dso: 1.6, dss: .5,  jit: .03, grav: .045 },
+    { n: 'mycelium',sa: 28,   ra: 58, so: 6,  ss: .8,  dep: .60, dec: .860, dif: .85, rep: .35, dso: 3.0, dss: 1.2, jit: .00, grav: 0 },
+    { n: 'veins',   sa: 38,   ra: 28, so: 22, ss: 1.6, dep: .45, dec: .935, dif: .35, rep: .25, dso: 1.2, dss: .4,  jit: .02, grav: 0 },
+    { n: 'coral',   sa: 62,   ra: 18, so: 30, ss: 2.0, dep: .40, dec: .950, dif: .30, rep: .10, dso: 2.0, dss: .8,  jit: .03, grav: 0 },
+  ];
+  const KEYS = ['sa', 'ra', 'so', 'ss', 'dep', 'dec', 'dif', 'rep', 'dso', 'dss', 'jit', 'grav'], RAD = Math.PI / 180;
+  const H = '#version 300 es\nprecision highp float;\nprecision highp int;\n';
+  const UPDATE_VS = H + `
+in vec4 a; out vec4 o;
+uniform sampler2D uTrail, uMask;
+uniform vec2 uRes; uniform float uFrame, uVS, uSA, uRA, uSO, uSS, uRep, uDSO, uDSS, uJit, uMaskGain, uGrav, uGravA;
+uint hash(uint x){ x ^= x>>16; x *= 0x7feb352dU; x ^= x>>15; x *= 0x846ca68bU; x ^= x>>16; return x; }
+float rnd(uint s){ return float(hash(s)>>8) * (1. / 16777216.); }
+vec2 dir(float t){ return vec2(cos(t), sin(t)); }
+float sense(vec2 p, vec3 w){
+  float v = dot(textureLod(uTrail, p, 0.).rgb, w) * uVS;
+  if (uMaskGain > 0.001) v += textureLod(uMask, p, 0.).r * uMaskGain;
+  return v;
+}
+void main(){
+  vec2 p = a.xy; float ang = a.z;
+  int sp = gl_VertexID % 3;
+  vec3 w = vec3(-uRep); w[sp] = 1.0;
+  vec2 px = 1. / uRes;
+  float c = max(textureLod(uTrail, p, 0.).rgb[sp] * uVS, 0.);
+  float m = clamp(c * .12, 0., 1.);
+  float so = uSO * (1. + uDSO * m), ss = uSS * (1. + uDSS * m);
+  float F = sense(p + dir(ang) * so * px, w);
+  float L = sense(p + dir(ang + uSA) * so * px, w);
+  float R = sense(p + dir(ang - uSA) * so * px, w);
+  uint seed = uint(gl_VertexID) * 747796405u + uint(uFrame) * 2891336453u;
+  float r = rnd(seed), r2 = rnd(seed ^ 0x9e3779b9u);
+  if (F > L && F > R) {}
+  else if (F < L && F < R) ang += (r < .5 ? -1. : 1.) * uRA;
+  else if (L > R) ang += uRA;
+  else if (R > L) ang -= uRA;
+  ang += uGrav * sin(uGravA - ang);                                   // roots: everyone leans the same way, a little
+  ang = mod(ang + (r2 - .5) * uJit, 6.28318530718);
+  if (uMaskGain > 0.001) ss *= 1. - .6 * textureLod(uMask, p, 0.).r * min(uMaskGain * .06, 1.);
+  vec2 np = p + dir(ang) * ss * px;
+  if (uGrav > .004 && np.y >= 1.) {                                   // out through the top: born again as a fine tip lower down
+    float y = rnd(seed ^ 0x51ed270bu); np = vec2(rnd(seed ^ 0x2f0b3a95u), y * y * .85); ang = 1.5708 + (r - .5) * 2.4;
+  }
+  o = vec4(fract(np), ang, a.w);
+}`;
+  const DEPOSIT_VS = H + `in vec4 a; flat out vec3 k; uniform float uDep;
+void main(){ int sp = gl_VertexID % 3; k = vec3(0.); k[sp] = uDep; gl_Position = vec4(a.xy * 2. - 1., 0., 1.); gl_PointSize = 1.; }`;
+  const DIFFUSE_FS = H + `out vec4 o; uniform sampler2D uTrail, uMask; uniform vec2 uRes; uniform float uDif, uDec, uSub, uMax, uMaskOn;
+void main(){
+  vec2 px = 1. / uRes, uv = gl_FragCoord.xy * px; vec3 c = texture(uTrail, uv).rgb; vec3 s = c;
+  s += texture(uTrail, uv + px * vec2(1, 0)).rgb + texture(uTrail, uv + px * vec2(-1, 0)).rgb;
+  s += texture(uTrail, uv + px * vec2(0, 1)).rgb + texture(uTrail, uv + px * vec2(0, -1)).rgb;
+  s += texture(uTrail, uv + px * vec2(1, 1)).rgb + texture(uTrail, uv + px * vec2(-1, 1)).rgb;
+  s += texture(uTrail, uv + px * vec2(1, -1)).rgb + texture(uTrail, uv + px * vec2(-1, -1)).rgb;
+  float off = uMaskOn > .001 ? uMaskOn * (1. - smoothstep(0., .35, texture(uMask, uv).r)) : 0.;   // off the mask the trail fades: the word stands alone
+  o = vec4(clamp(mix(c, s / 9., uDif) * uDec * (1. - .10 * off) - uSub, 0., uMax), 1.);
+}`;
+  const RENDER_FS = H + `out vec4 o; uniform sampler2D uTrail; uniform vec2 uRes, uOut; uniform float uVS, uExpo; uniform vec3 uC[3];` + TAIL + `
+vec3 dens(vec2 p){ return 1. - exp(-texture(uTrail, p).rgb * uVS * uExpo); }
+void main(){
+  vec2 uv = gl_FragCoord.xy / uOut, px = 1.5 / uRes;
+  vec3 v = dens(uv); float h = dot(v, vec3(1.));
+  float hx = dot(dens(uv + vec2(px.x, 0.)) - dens(uv - vec2(px.x, 0.)), vec3(1.));
+  float hy = dot(dens(uv + vec2(0., px.y)) - dens(uv - vec2(0., px.y)), vec3(1.));
+  vec3 n = normalize(vec3(-hx * 2.2, -hy * 2.2, 1.)), L = normalize(vec3(-.45, .6, .65));
+  float dif = max(dot(n, L), 0.), spec = pow(max(dot(n, normalize(L + vec3(0., 0., 1.))), 0.), 28.);
+  vec3 col = v.r * uC[0] + v.g * uC[1] + v.b * uC[2];
+  col *= .50 + .70 * dif;
+  col += spec * .18 * min(h, 1.) + pow(min(h * .5, 1.), 4.) * .15;
+  o = fin(col, uv);
+}`;
+  let P = null, W = 0, Hh = 0, N = 0, MAXN = 0, VS = 1, useFloat = FLOAT, cur = 0, src = 0, frameN = 0, maskGain = 0, habit = '', shake = 0;
+  const trail = [null, null], fbo = [null, null], bufs = [], vaos = [], live = Object.assign({}, PRESETS[2]);
+  let tfo, maskTex, seeded = false;
+  function init() {
+    P = { update: program(UPDATE_VS, H + 'void main(){}', ['o']), deposit: program(DEPOSIT_VS, H + 'flat in vec3 k; out vec4 o; void main(){ o = vec4(k, 1.); }'),
+          diffuse: program(QUAD, DIFFUSE_FS), render: program(QUAD, RENDER_FS) };
+    for (const k of ['update', 'diffuse', 'render']) { gl.useProgram(P[k].p); gl.uniform1i(P[k].u.uTrail, 0); }
+    for (let k = 0; k < 2; k++) { bufs.push(gl.createBuffer()); vaos.push(gl.createVertexArray()); }
+    tfo = gl.createTransformFeedback();
+    maskTex = dataTex(7, 2, 2, gl.CLAMP_TO_EDGE);
+    MAXN = +Q.get('n') || (LITE ? 240000 : OUT ? 900000 : 600000); MAXN -= MAXN % 3; N = N ? Math.min(N, MAXN) : MAXN;
+  }
+  function seed() {
+    if (!P || !W) return;
+    const d = new Float32Array(MAXN * 4);
+    for (let i = 0; i < MAXN; i++) { const j = i * 4; d[j] = Math.random(); d[j + 1] = Math.random(); d[j + 2] = Math.random() * 6.28318; d[j + 3] = Math.random(); }
+    for (let k = 0; k < 2; k++) {
+      gl.bindVertexArray(vaos[k]); gl.bindBuffer(gl.ARRAY_BUFFER, bufs[k]); gl.bufferData(gl.ARRAY_BUFFER, d, gl.DYNAMIC_COPY);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0);
+    }
+    gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  }
+  function makeTrail() {
+    for (let k = 0; k < 2; k++) {
+      if (trail[k]) gl.deleteTexture(trail[k]); if (fbo[k]) gl.deleteFramebuffer(fbo[k]);
+      trail[k] = gl.createTexture(); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, trail[k]);
+      if (useFloat) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, W, Hh, 0, gl.RGBA, gl.HALF_FLOAT, null);
+      else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, Hh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      fbo[k] = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fbo[k]);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, trail[k], 0);
+      gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+    VS = useFloat ? 1 : 64; gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  function size(cw, ch) {
+    const s = Math.min(1, Math.sqrt((LITE ? 600000 : 1300000) / (cw * ch))), nw = Math.max(2, Math.round(cw * s)), nh = Math.max(2, Math.round(ch * s));
+    if (nw !== W || nh !== Hh) { W = nw; Hh = nh; makeTrail(); }
+  }
+  // out: { f, w, h } where the picture goes. name: which habit. masked: a word to grow on. o: { colors, dim, textAmt, frame, T }
+  function draw(out, name, masked, o) {
+    if (!P) init(); size(out.w, out.h); if (!seeded) { seeded = true; seed(); }
+    const a = S.a, g = S.k.gain, T = masked ? PRESETS[0] : PRESETS.find(p => p.n === name) || PRESETS[2], kk = masked ? .05 : .02;
+    for (const key of KEYS) live[key] += (T[key] - live[key]) * kk;
+    maskGain += ((masked ? 26 : 0) - maskGain) * (masked ? .06 : .02);
+    frameN++;
+    if (T.n !== habit) { if (habit) shake = 1; habit = T.n; }           // a change of habit shakes the old net loose, so the new one can form
+    shake *= .988;
+    const dst = 1 - src; let u = P.update.u;
+    const sway = 1 + .12 * Math.sin(o.T * .043), reach = 1 + .18 * Math.sin(o.T * .029 + 1.3);     // the habits drift a little over minutes, so the net never settles
+    gl.useProgram(P.update.p);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, trail[cur]);
+    gl.uniform2f(u.uRes, W, Hh); gl.uniform1f(u.uFrame, frameN % 1000003); gl.uniform1f(u.uVS, VS);
+    gl.uniform1f(u.uSA, live.sa * RAD * sway * (1 + (S.k.warp - .5) * .7 + .2 * a.mid * g)); gl.uniform1f(u.uRA, live.ra * RAD);
+    gl.uniform1f(u.uSO, live.so * reach); gl.uniform1f(u.uSS, live.ss * (.45 + 1.0 * S.k.speed) * (.85 + .7 * a.bass * g));
+    gl.uniform1f(u.uRep, live.rep); gl.uniform1f(u.uDSO, live.dso); gl.uniform1f(u.uDSS, live.dss);
+    gl.uniform1f(u.uJit, live.jit + a.high * g * .25 + shake * 1.6); gl.uniform1f(u.uMaskGain, maskGain);
+    gl.uniform1f(u.uGrav, live.grav); gl.uniform1f(u.uGravA, Math.PI / 2 + .5 * Math.sin(o.T * .037) + .25 * Math.sin(o.T * .011));   // the wind that bends the roots
+    gl.bindVertexArray(vaos[src]);
+    gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tfo); gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, bufs[dst]);
+    gl.enable(gl.RASTERIZER_DISCARD);
+    gl.beginTransformFeedback(gl.POINTS); gl.drawArrays(gl.POINTS, 0, N); gl.endTransformFeedback();
+    gl.disable(gl.RASTERIZER_DISCARD);
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null); gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+    src = dst; gl.bindTexture(gl.TEXTURE_2D, null);
+    // deposit, scaled so the picture weighs the same whatever the agent count and the simulation size
+    gl.viewport(0, 0, W, Hh); gl.bindFramebuffer(gl.FRAMEBUFFER, fbo[cur]);
+    gl.useProgram(P.deposit.p); gl.uniform1f(P.deposit.u.uDep, live.dep * clamp(.706 / (N / (W * Hh)), .5, 5) * (.85 + .5 * a.level * g) / VS);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+    gl.bindVertexArray(vaos[src]); gl.drawArrays(gl.POINTS, 0, N); gl.disable(gl.BLEND);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo[1 - cur]);
+    gl.useProgram(P.diffuse.p); u = P.diffuse.u;
+    gl.bindTexture(gl.TEXTURE_2D, trail[cur]);
+    gl.uniform2f(u.uRes, W, Hh); gl.uniform1f(u.uDif, live.dif); gl.uniform1f(u.uDec, live.dec * (1 - .09 * shake));
+    gl.uniform1f(u.uSub, useFloat ? 0 : .6 / 255); gl.uniform1f(u.uMax, useFloat ? 400 : 1); gl.uniform1f(u.uMaskOn, Math.min(1, maskGain / 26));
+    gl.bindVertexArray(quadVAO); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    cur = 1 - cur;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, out.f); gl.viewport(0, 0, out.w, out.h);
+    gl.useProgram(P.render.p); u = P.render.u;
+    gl.bindTexture(gl.TEXTURE_2D, trail[cur]);
+    gl.uniform2f(u.uRes, W, Hh); gl.uniform2f(u.uOut, out.w, out.h); gl.uniform1f(u.uVS, VS); gl.uniform1f(u.uExpo, .15 * (1 + .25 * a.beat * g));
+    gl.uniform3fv(u.uC, o.colors); gl.uniform1f(u.uDim, o.dim); gl.uniform1f(u.uLift, o.lift); gl.uniform1f(u.uTextAmt, o.textAmt); gl.uniform1f(u.uFrame, o.frame);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  return { draw, PRESETS, mask: el => { if (!P) init(); uploadCanvas(7, maskTex, el, true); },
+    slower() { if (!N) return; N = Math.max(90000, Math.floor(N * .78 / 3) * 3); }, get n() { return N; }, set n(v) { if (!(v > 0)) return; v = Math.max(90000, v | 0); N = (MAXN ? Math.min(MAXN, v) : v); N -= N % 3; } };
+})();
+
+// ---------- sound: three bands and a loudness, each against its own recent floor and peak, and a soft pulse on the kick ----------
+// No tempo and no beat count: nothing here ever flashes or cuts. With no input the same four numbers breathe by themselves.
+const BASS = [4, 18], MID = [19, 43], HIGH = [44, 63];              // band i sits at 20 * 800^(i/64) Hz
+const A = { src: 'calm', ctx: null, an: null, stream: null, fd: null, bins: null, spec: new Uint8Array(64),
+  pk: [.3, .3, .3, .3], lo: [.2, .2, .2, .2], prevB: 0, flux: new Float32Array(64), fi: 0, lastOn: -9 };
+// first and one-past-last FFT bin of each band; low bands are narrower than a bin, so neighbours may share one
+function bandBins(nb, nyquist) {
+  const o = new Uint16Array(128), f = i => 20 * Math.pow(800, i / 64) / nyquist * nb;
+  for (let i = 0; i < 64; i++) { const lo = clamp(Math.floor(f(i)), 1, nb - 1); o[i * 2] = lo; o[i * 2 + 1] = clamp(Math.ceil(f(i + 1)), lo + 1, nb); }
+  return o;
+}
+const band = ([a, b]) => { let s = 0; for (let i = a; i <= b; i++) s += A.spec[i]; return s / ((b - a + 1) * 255); };
+function audio(dt, t) {
+  const a = S.a; a.beat *= Math.exp(-dt * 2.4);
+  if (A.src !== 'in' || !A.an) {                                      // nobody is listening: a slow breath of its own
+    const e = Math.min(1, dt * 2);
+    a.bass += (.30 + .20 * Math.sin(t * .21) + .08 * Math.sin(t * .47) - a.bass) * e; a.mid += (.30 + .20 * Math.sin(t * .13 + 1) - a.mid) * e;
+    a.high += (.20 + .14 * Math.sin(t * .31 + 2) - a.high) * e; a.level += (.36 + .16 * Math.sin(t * .09 + 4) - a.level) * e;
+    return;
+  }
+  A.an.getByteFrequencyData(A.fd);
+  for (let i = 0; i < 64; i++) { let m = 0; for (let b = A.bins[i * 2]; b < A.bins[i * 2 + 1]; b++) if (A.fd[b] > m) m = A.fd[b]; A.spec[i] = m; }
+  const raw = [band(BASS), band(MID), band(HIGH), band([0, 63])], out = [];
+  for (let i = 0; i < 4; i++) {
+    A.pk[i] = Math.max(raw[i], A.pk[i] - dt * .03, .06); A.lo[i] = Math.min(raw[i], A.lo[i] + dt * .05);
+    out[i] = clamp((raw[i] - A.lo[i]) / Math.max(.08, A.pk[i] - A.lo[i]), 0, 1);
+  }
+  const sm = (cur, x) => cur + (x - cur) * (x > cur ? .30 : .05);        // rises with the music, lets go slowly
+  a.bass = sm(a.bass, out[0]); a.mid = sm(a.mid, out[1]); a.high = sm(a.high, out[2]); a.level = sm(a.level, out[3]);
+  const fl = Math.max(0, raw[0] - A.prevB); A.prevB = raw[0];
+  let mean = 0; for (let i = 0; i < 64; i++) mean += A.flux[i]; mean /= 64; A.flux[A.fi++ & 63] = fl;
+  if (fl > mean * 1.7 + .025 && t - A.lastOn > .22) { A.lastOn = t; a.beat = 1; A.hits = (A.hits || 0) + 1; }   // a sudden jump in the lows is a kick
+}
+
+// ---------- changing scene ----------
+let nextAuto = 0;
+function setLook(i) { S.look = ((i % LOOKS.length) + LOOKS.length) % LOOKS.length; S.seed = 1 + Math.floor(Math.random() * 996); nextAuto = 0; if (LOOKS[S.look].video && !vid.ok) say('video scene: press "load video" and pick a file'); }
+// the other scenes of the bank the current one is in (calm or loud); the video scene only counts once a video is loaded
+const mates = () => LOOKS.map((L, i) => i).filter(i => bankOf(i) === bankOf(S.look) && i !== S.look && (!LOOKS[i].video || vid.ok));
+// ---------- video: a file from this machine, looping without sound, as the ground the video scene draws on ----------
+const vid = { v: document.createElement('video'), ok: false, tex: gl.createTexture(), url: '', file: null, key: '', asked: 0, tries: 0 };
+vid.v.muted = true; vid.v.loop = true; vid.v.playsInline = true;
+gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, vid.tex);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
+gl.activeTexture(gl.TEXTURE0);
+// key names one loaded file. The console puts it in every state message; a picture window that holds a different one asks for the file,
+// so it arrives whichever window opened first, after a reload of either, and after a message that got lost.
+function useVideo(file, key) {
+  if (!file) return Promise.resolve(false);
+  if (vid.url) URL.revokeObjectURL(vid.url);
+  vid.file = file; vid.key = key || [file.name, file.size, Date.now()].join('|'); vid.url = URL.createObjectURL(file); vid.ok = false; vid.v.src = vid.url;
+  if (!OUT) bc.postMessage({ ev: 'video', file, key: vid.key });
+  return vid.v.play().then(() => { vid.ok = true; vid.tries = 0; say('video: ' + (file.name || 'loaded')); ui(); return true; },
+    e => { say('that video could not be opened: ' + e.message); if (OUT && ++vid.tries < 4) vid.key = ''; return false; });   // a picture window asks again, a few times
+}
+function pilot(now) {                                                 // changes by itself every S.auto minutes, if asked to
+  if (!S.auto) { nextAuto = 0; return; }
+  if (!nextAuto) nextAuto = now + S.auto * 60000;
+  if (now < nextAuto) return;
+  const m = mates(); setLook(m[Math.floor(Math.random() * m.length)]); if (Math.random() < .5) S.pal = (S.pal + 1 + Math.floor(Math.random() * (PALS.length - 1))) % PALS.length;
+  save(); ui();
+}
+
+// ---------- text: laid over a picture, or something for the organisms to grow on ----------
+const tc = document.createElement('canvas'), tx = tc.getContext('2d'); tc.width = 1024; tc.height = 576;
+const mc = document.createElement('canvas'), mx = mc.getContext('2d'); mc.width = 512; mc.height = 288;
+const textTex = gl.createTexture(); let textKey = null, maskKey = null;
+gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, textTex);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 1, 1, 0, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array(1));
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+gl.activeTexture(gl.TEXTURE0);
+const word = () => S.text.trim() || 'show';
+function paintText(cx, w, h, text, glow) {
+  cx.fillStyle = '#000'; cx.fillRect(0, 0, w, h);
+  if (!text) return;
+  const font = s => `900 ${s}px ui-rounded, -apple-system, "Helvetica Neue", Arial, sans-serif`;
+  const ws = text.split(' '); let lines = [text];
+  if (text.length > 12 && ws.length > 1) { let best = 1, bd = 1e9; for (let i = 1; i < ws.length; i++) { const d = Math.abs(ws.slice(0, i).join(' ').length - ws.slice(i).join(' ').length); if (d < bd) { bd = d; best = i; } } lines = [ws.slice(0, best).join(' '), ws.slice(best).join(' ')]; }
+  let size = h * .62; cx.font = font(size);
+  size *= Math.min(1, w * .86 / Math.max(...lines.map(l => cx.measureText(l).width)), lines.length > 1 ? .62 : 1); cx.font = font(size);
+  cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillStyle = '#fff';
+  lines.forEach((l, i) => {
+    const y = h / 2 + (i - (lines.length - 1) / 2) * size * 1.02;
+    if (glow) { cx.shadowColor = 'rgba(255,255,255,.55)'; cx.shadowBlur = size * .22; cx.fillText(l, w / 2, y); cx.shadowBlur = 0; }
+    cx.fillText(l, w / 2, y);
+  });
+}
+function drawText() { const k = S.textOn ? word() : ''; if (k === textKey) return; textKey = k; if (!k) return; paintText(tx, tc.width, tc.height, k.toUpperCase(), false); uploadCanvas(4, textTex, tc, false); }
+function drawMask() { const k = word(); if (k === maskKey) return; maskKey = k; paintText(mx, mc.width, mc.height, k, true); Moho.mask(mc); }
+
+// ---------- as much detail as this machine can draw smoothly ----------
+// Frames that take too long shrink the picture (or thin the organisms) until they do not. If two cuts in a row buy nothing
+// the screen itself is the slow part (a 30 Hz projector), so the cuts are undone and it stops trying. The level found is
+// kept per machine, and every start tries one step better than last time.
+const Qy = { scale: 1, lock: false, hist: [] };
+try { const o = JSON.parse(localStorage.getItem('show.q') || 'null'); if (o && o.scale > 0) { Qy.scale = clamp(o.scale / .85, .3, 1); if (o.n) Moho.n = Math.round(o.n / .78); } } catch (e) {}
+function slowDown(ms, organism) {
+  if (Qy.lock) return;
+  const h = Qy.hist; h.push({ ms, scale: Qy.scale, n: Moho.n });
+  if (h.length >= 3 && ms > h[h.length - 3].ms * .9) { Qy.scale = h[h.length - 3].scale; Moho.n = h[h.length - 3].n; Qy.lock = true; }
+  else if (organism && Moho.n > 90000) Moho.slower(); else if (Qy.scale > .32) Qy.scale *= .85; else return;
+  try { localStorage.setItem('show.q', JSON.stringify({ scale: Qy.scale, n: Moho.n })); } catch (e) {}
+}
+
+// ---------- the frame ----------
+let rafIdle = false;
+document.addEventListener('visibilitychange', () => { if (!document.hidden && rafIdle) { rafIdle = false; requestAnimationFrame(frame); } });
+let RW = 0, RH = 0, T = Math.random() * 500, tPrev = 0, frameNo = 0, ema = 16, slowN = 0, outs = 0, lastMsg = -1e9;
+let shown = S.look, shownSeed = S.seed, fade = 0, blackV = 1, textV = 0;
+const liveC = PALS[S.pal].slice(1).map(c => c.slice());
+const OUT_FOLLOW = () => OUT && performance.now() - lastMsg < 1500;
+function fit() {
+  const dpr = Math.min(devicePixelRatio || 1, 2), cw = innerWidth * dpr, ch = innerHeight * dpr;
+  const s = Math.min(1, Math.sqrt((LITE ? 900000 : 2300000) / (cw * ch))) * Qy.scale * (!OUT && outs ? .5 : 1);     // the console preview gives way to the projector
+  const w = Math.max(2, Math.round(cw * s)), h = Math.max(2, Math.round(ch * s));
+  if (w !== RW || h !== RH) { RW = canvas.width = w; RH = canvas.height = h; }
+}
+function frame(now) {
+  if (!PROBE && !(document.hidden && !OUT)) requestAnimationFrame(frame); else if (!PROBE) rafIdle = true;
+  const dms = now - (tPrev || now), dt = clamp(dms / 1000, 0, .1); tPrev = now; frameNo++;
+  const a = S.a, k = S.k, organism = LOOKS[shown].moho !== undefined;
+  if (dms > 0 && dms < 400) ema += (dms - ema) * .05;
+  if (++slowN > 120 && ema > 24 && !PROBE && !document.hidden) { slowDown(ema, organism); slowN = 0; ema = 17; }
+  if (!OUT_FOLLOW()) { audio(dt, now / 1000); T += dt * (.12 + 1.5 * k.speed) * (1 + .35 * a.bass * k.gain); pilot(now); }
+  fit();
+  const pc = PALS[S.pal];
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) liveC[i][j] += (pc[i + 1][j] - liveC[i][j]) * Math.min(1, dt * 1.5);
+  // a change of scene goes through the dark; two organisms are the same creature, so they just change habits
+  if (shown !== S.look) {
+    if (organism && LOOKS[S.look].moho !== undefined) { shown = S.look; shownSeed = S.seed; }
+    else { fade -= dt / .7; if (fade <= 0) { fade = 0; shown = S.look; shownSeed = S.seed; } }
+  } else fade = Math.min(1, fade + dt / 1.6);
+  blackV += ((S.black ? 0 : 1) - blackV) * Math.min(1, dt * 2.5);
+  const L = LOOKS[shown], grow = S.textOn && L.moho !== undefined;      // in an organism the word is grown, not printed
+  textV += ((S.textOn && !grow ? 1 : 0) - textV) * Math.min(1, dt * 2);
+  const dim = k.dim * fade * fade * (3 - 2 * fade) * (blackV < .004 ? 0 : blackV);
+  drawText();
+  const mapped = Mapa.on(), post = mapped ? Mapa.buf(RW, RH) : null;      // mapped: the picture goes to a buffer, the mapper puts it on the surfaces
+  gl.bindVertexArray(quadVAO); gl.disable(gl.BLEND);
+  if (L.moho !== undefined) {
+    if (grow) drawMask();
+    Moho.draw({ f: post ? post.f : null, w: RW, h: RH }, L.moho, grow, { colors: [].concat(liveC[0], liveC[1], liveC[2]), dim, lift: k.lift, textAmt: textV, frame: frameNo % 61, T });
+  } else {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, post ? post.f : null); gl.viewport(0, 0, RW, RH);
+    const u = L.pr.u; gl.useProgram(L.pr.p);
+    gl.uniform2f(u.uRes, RW, RH); gl.uniform1f(u.uT, T % 6283.185307179586); gl.uniform1f(u.uD, (T * .02) % 256);
+    gl.uniform1f(u.uBeat, a.beat); gl.uniform1f(u.uBass, a.bass); gl.uniform1f(u.uMid, a.mid); gl.uniform1f(u.uHigh, a.high); gl.uniform1f(u.uLevel, a.level);
+    gl.uniform1f(u.uGain, k.gain); gl.uniform1f(u.uWarp, k.warp); gl.uniform1f(u.uSeed, shownSeed);
+    gl.uniform3fv(u.uA, liveC[0]); gl.uniform3fv(u.uB, liveC[1]); gl.uniform3fv(u.uC, liveC[2]);
+    gl.uniform1f(u.uDim, dim); gl.uniform1f(u.uLift, k.lift); gl.uniform1f(u.uTextAmt, textV); gl.uniform1f(u.uFrame, frameNo % 61);
+    if (L.video) {
+      if (vid.ok && vid.v.paused) vid.v.play().catch(() => {});             // the browser pauses it while the window is hidden
+      const on = vid.ok && vid.v.readyState >= 2 && vid.v.videoWidth > 0;
+      if (on) { gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, vid.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, vid.v); gl.activeTexture(gl.TEXTURE0); }
+      gl.uniform1f(u.uVidOn, on ? 1 : 0); gl.uniform1f(u.uVidAsp, on ? vid.v.videoWidth / vid.v.videoHeight : 1.78);
+    }
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  if (post) Mapa.draw(post.t, RW, RH);
+  gl.bindVertexArray(null);
+  if (!OUT) { bc.postMessage({ S, T, vk: vid.key }); meters(); }
+}
+
+// ---------- the console and the picture window talk over a channel ----------
+const bc = new BroadcastChannel('lienzo-show');
+bc.onmessage = e => {
+  const m = e.data;
+  if (OUT) {
+    if (m.ev === 'map') return Mapa.toggle();
+    if (m.ev === 'video') return void (m.key !== vid.key && useVideo(m.file, m.key));
+    if (!m.S) return;
+    const was = lastMsg; lastMsg = performance.now(); Object.assign(S, m.S); T = m.T;
+    if (m.vk && m.vk !== vid.key && lastMsg - vid.asked > 1500) { vid.asked = lastMsg; bc.postMessage({ ev: 'needvideo' }); }
+    if (lastMsg - was > 1500) ui();
+  } else if (m.hello) outs = 3;
+  else if (m.ev === 'needvideo') { if (vid.file) bc.postMessage({ ev: 'video', file: vid.file, key: vid.key }); }
+  else if (m.ev === 'run') run(m.id);                                  // a click in the picture window lands here
+};
+if (OUT) setInterval(() => bc.postMessage({ hello: 1 }), 700); else setInterval(() => { if (outs > 0) outs--; }, 1000);
+if (OUT) setInterval(ui, 1000);                                       // while it follows, its dock shows what the console chose
+
+// ---------- sound in ----------
+function stopInput() { if (A.stream) { A.stream.getTracks().forEach(t => t.stop()); A.stream = null; } A.an = null; }
+function startInput(deviceId) {
+  if (!navigator.mediaDevices) return say('sound input needs https or localhost');
+  stopInput(); A.src = 'in';
+  const audio = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+  if (deviceId) audio.deviceId = { exact: deviceId };
+  navigator.mediaDevices.getUserMedia({ audio }).then(stream => {
+    A.ctx = A.ctx || new AudioContext(); A.ctx.resume();
+    A.stream = stream; const an = A.ctx.createAnalyser(); an.fftSize = 2048; an.smoothingTimeConstant = 0; an.minDecibels = -85; an.maxDecibels = -12;
+    A.ctx.createMediaStreamSource(stream).connect(an);
+    A.fd = new Uint8Array(an.frequencyBinCount); A.bins = bandBins(an.frequencyBinCount, A.ctx.sampleRate / 2);
+    A.an = an; say('listening to ' + (stream.getAudioTracks()[0].label || 'the input'));
+    return navigator.mediaDevices.enumerateDevices();
+  }).then(list => {
+    const sel = $('dev'), curId = A.stream && A.stream.getAudioTracks()[0].getSettings().deviceId;
+    sel.innerHTML = ''; for (const d of list) if (d.kind === 'audioinput') { const o = document.createElement('option'); o.value = d.deviceId; o.textContent = d.label || 'input'; o.selected = d.deviceId === curId; sel.appendChild(o); }
+    sel.hidden = false; ui();
+  }).catch(e => { say('no sound input: ' + e.message); A.src = 'calm'; ui(); });
+}
+
+// ---------- MIDI: every knob and button can learn a control ----------
+let midiMap = {}, learning = null;
+try { midiMap = JSON.parse(localStorage.getItem('show.midi3') || '{}'); } catch (e) {}
+if (!Object.keys(midiMap).length) {                                   // common defaults: pads from note 36, knobs on CC 21 to 24
+  LOOKS.forEach((L, i) => midiMap['n' + (36 + i)] = 'look' + i); KNOBS.forEach(([id], i) => midiMap['c' + (21 + i)] = 'k.' + id);
+}
+function startMidi() {
+  if (!navigator.requestMIDIAccess) return say('this browser has no MIDI');
+  navigator.requestMIDIAccess().then(acc => {
+    const hook = () => { let n = 0; for (const inp of acc.inputs.values()) { inp.onmidimessage = onMidi; n++; } say(n ? 'midi: ' + [...acc.inputs.values()].map(i => i.name).join(', ') : 'midi ready, no controller plugged in'); };
+    acc.onstatechange = hook; hook();
+  }, e => say('midi: ' + e.message));
+}
+function onMidi(e) {
+  const [st, d1, d2] = e.data, type = st & 0xf0;
+  const key = type === 0xb0 ? 'c' + d1 : type === 0x90 && d2 > 0 ? 'n' + d1 : null; if (!key) return;
+  if (learning && learning !== '?') { for (const k in midiMap) if (midiMap[k] === learning) delete midiMap[k]; midiMap[key] = learning; localStorage.setItem('show.midi3', JSON.stringify(midiMap)); say('assigned: ' + learning); learning = null; ui(); }
+  const id = midiMap[key]; if (!id) return;
+  if (id.startsWith('k.')) { if (type === 0xb0) { S.k[id.slice(2)] = d2 / 127; save(); ui(); } }
+  else if (type === 0x90 || d2 > 63) run(id);
+}
+
+// ---------- actions, keys, console, dock ----------
+const HERE = ['full', 'map', 'hide', 'guide', 'out', 'midi', 'learn', 'snd', 'vid'];   // these belong to the window they are pressed in
+const ACT = {
+  next: () => { const m = mates(); setLook(m.find(i => i > S.look) ?? m[0]); },
+  vid: () => { $('vidfile').value = ''; $('vidfile').click(); },
+  pal: () => { S.pal = (S.pal + 1) % PALS.length; }, palb: () => { S.pal = (S.pal + PALS.length - 1) % PALS.length; },
+  auto: () => { S.auto = AUTO[(AUTO.indexOf(S.auto) + 1) % AUTO.length]; nextAuto = 0; },
+  black: () => { S.black = !S.black; }, text: () => { S.textOn = !S.textOn; },
+  snd: () => { if (A.src === 'in') { stopInput(); A.src = 'calm'; $('dev').hidden = true; say(''); } else startInput($('dev').value); },
+  reset: () => { for (const [id, , v] of KNOBS) S.k[id] = v; Object.assign(S, { pal: 0, black: false, auto: 0, textOn: false }); nextAuto = 0; say('reset'); },
+  out: () => { window.open(location.pathname + '?out=1', 'lienzo-out', 'popup,width=1280,height=720'); say('drag the new window to the projector and press f'); },
+  full: () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); },
+  map: () => { if (!OUT && outs > 0) { bc.postMessage({ ev: 'map' }); say('mapping happens in the projector window, with the mouse over the projection'); } else Mapa.toggle(); },
+  midi: startMidi, learn: () => { learning = learning ? null : '?'; say(learning ? 'press the control here that you want to assign' : ''); },
+  hide: () => { document.body.classList.toggle('quiet'); document.body.classList.remove('dock'); }, guide: () => { $('guide').hidden = !$('guide').hidden; },
+};
+function run(id) {
+  if (OUT_FOLLOW() && !HERE.includes(id)) return bc.postMessage({ ev: 'run', id });   // a console is in charge: tell it
+  if (id.startsWith('look')) setLook(+id.slice(4)); else if (id.startsWith('pal') && id.length > 3 && !ACT[id]) S.pal = clamp(+id.slice(3) | 0, 0, PALS.length - 1); else if (ACT[id]) ACT[id]();
+  save(); ui();
+}
+function press(id) { if (learning === '?' && !HERE.includes(id) && id !== 'reset') { learning = id; say('now move or press the controller control for: ' + id); return ui(); } run(id); }
+function say(t) { $('msg').textContent = t || ''; }
+const kn = {};
+function build() {
+  for (const box of document.querySelectorAll('.looks')) { let n = 0; LOOKS.forEach((L, i) => { if (bankOf(i) !== +box.dataset.bank) return;
+    const b = document.createElement('button'); b.dataset.a = 'look' + i; b.innerHTML = '<i>' + (L.key || (bankOf(i) ? '⇧' : '') + (++n % 10)) + '</i>' + L.name; box.appendChild(b); }); }
+  $('vidfile').addEventListener('change', e => { const f = e.target.files[0]; if (f) useVideo(f).then(ok => { if (ok) run('look' + VIDEO); }); });
+  for (const box of document.querySelectorAll('.pals')) PALS.forEach((p, i) => { const b = document.createElement('button'); b.className = 'sw'; b.title = p[0]; b.dataset.a = 'pal' + i;
+    const c = x => 'rgb(' + x.map(v => Math.round(v * 255)).join(',') + ')'; b.style.background = `linear-gradient(90deg, ${c(p[1])}, ${c(p[2])}, ${c(p[3])})`; box.appendChild(b); });
+  KNOBS.forEach(([id, name]) => {
+    const l = document.createElement('label'); l.className = 'kn'; l.innerHTML = `<span>${name}<em></em></span><input type="range" min="0" max="1" step="0.001">`;
+    const inp = l.querySelector('input'); inp.oninput = () => { S.k[id] = +inp.value; save(); ui(); };
+    l.querySelector('span').onclick = e => { if (learning === '?') { e.preventDefault(); learning = 'k.' + id; say('now move the controller control for: ' + name); ui(); } };
+    kn[id] = l; $('knobs').appendChild(l);
+  });
+  for (const box of [$('hud'), $('dock')]) box.addEventListener('click', e => { const b = e.target.closest('button'); if (!b || !b.dataset.a) return; press(b.dataset.a); b.blur(); });
+  // every section of the console and of the guide folds; the console remembers which ones were open
+  let open = {}; try { open = JSON.parse(localStorage.getItem('show.open') || '{}'); } catch (e) {}
+  for (const d of $('hud').querySelectorAll('details')) if (d.dataset.s in open) d.open = open[d.dataset.s];
+  $('hud').addEventListener('toggle', e => { if (e.target.dataset.s) { open[e.target.dataset.s] = e.target.open; try { localStorage.setItem('show.open', JSON.stringify(open)); } catch (x) {} } }, true);
+  for (const m of document.querySelectorAll('summary')) m.addEventListener('click', () => setTimeout(() => m.blur(), 0));
+  $('guide').addEventListener('click', e => {
+    const g = e.target.closest('button') && e.target.closest('button').dataset.g; if (!g) return;
+    if (g === 'close') { $('guide').hidden = true; ui(); } else for (const d of $('guide').querySelectorAll('details')) d.open = g === 'all';
+  });
+  $('dev').onchange = () => startInput($('dev').value);
+  $('txt').value = S.text; $('txt').oninput = () => { S.text = $('txt').value; save(); };
+  $('txt').onkeydown = e => { if (e.key === 'Enter' || e.key === 'Escape') { $('txt').blur(); if (e.key === 'Enter' && !S.textOn) { S.textOn = true; save(); ui(); } } e.stopPropagation(); };
+  // a window with no console in sight: a click is the next scene, and moving the mouse brings the dock for a moment
+  const bare = () => (OUT || document.body.classList.contains('quiet')) && !Mapa.editing;
+  let dockT = 0;
+  const dock = () => { if (!bare()) return; document.body.classList.add('dock'); clearTimeout(dockT); dockT = setTimeout(() => { if (!$('dock').matches(':hover')) document.body.classList.remove('dock'); else dock(); }, 3000); };
+  addEventListener('pointermove', dock);
+  canvas.addEventListener('click', () => { if (bare()) { run('next'); dock(); } });
+}
+function ui() {
+  for (const b of document.querySelectorAll('button[data-a]')) {
+    const a = b.dataset.a; let on;
+    if (a.startsWith('look')) on = S.look === +a.slice(4);
+    else if (/^pal\d/.test(a)) on = S.pal === +a.slice(3);
+    else on = { vid: vid.ok, guide: !$('guide').hidden, auto: S.auto > 0, snd: A.src === 'in', map: Mapa.count > 0, black: S.black, text: S.textOn, learn: !!learning }[a] || false;
+    b.classList.toggle('on', !!on); b.classList.toggle('learn', !!learning && learning === a);
+    if (a === 'auto') b.textContent = S.auto ? 'change every ' + S.auto + ' min' : 'hold scene';
+    else if (a === 'snd') b.textContent = A.src === 'in' ? 'listening' : 'sound off';
+    if (OUT && (a === 'snd')) b.hidden = OUT_FOLLOW();                 // while it follows, the console does the listening
+  }
+  for (const [id] of KNOBS) { const l = kn[id]; if (!l) continue; const inp = l.querySelector('input'); if (document.activeElement !== inp) inp.value = S.k[id]; l.querySelector('em').textContent = Math.round(S.k[id] * 100); l.classList.toggle('learn', learning === 'k.' + id); }
+  $('look').textContent = LOOKS[S.look].name + ' · ' + PALS[S.pal][0] + (outs ? ' · output open' : '');
+}
+const mb = $('meters').querySelectorAll('b');
+function meters() {
+  if (frameNo % 2) return; const a = S.a;
+  mb[0].style.transform = `scaleY(${Math.max(.03, a.bass)})`; mb[1].style.transform = `scaleY(${Math.max(.03, a.mid)})`; mb[2].style.transform = `scaleY(${Math.max(.03, a.high)})`;
+  $('dot').style.opacity = .1 + .9 * a.beat;
+  if (frameNo % 60 === 0) $('look').textContent = LOOKS[S.look].name + ' · ' + PALS[S.pal][0] + (outs ? ' · output open' : '');
+}
+addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey || /INPUT|SELECT/.test(e.target.tagName)) return;
+  const k = e.key.toLowerCase();
+  if (k === 'f') return ACT.full();
+  if (Mapa.editing) return Mapa.key(e, k);                           // while mapping, the keys move corners
+  if (k === '?' || (k === 'escape' && !$('guide').hidden)) { e.preventDefault(); return OUT ? 0 : run('guide'); }
+  const map = { p: 'map', ' ': 'next', a: 'auto', b: 'black', arrowright: 'pal', arrowleft: 'palb', c: 'pal' };
+  const dg = /^Digit\d$/.test(e.code) ? +e.code.slice(5) : -1;        // by key, not by character: shift and the digits pick from the loud bank
+  if (dg >= 0) { e.preventDefault(); run('look' + LOOKS.map((L, i) => i).filter(i => bankOf(i) === (e.shiftKey ? 1 : 0) && !LOOKS[i].key)[(dg + 9) % 10]); }
+  else if (LOOKS.some(L => L.key === k)) { e.preventDefault(); run('look' + LOOKS.findIndex(L => L.key === k)); }
+  else if (map[k]) { e.preventDefault(); run(map[k]); }
+  else if (k === 'h' && !OUT) { e.preventDefault(); run('hide'); }
+  else if (k === 'enter' && !OUT) { e.preventDefault(); document.body.classList.remove('quiet'); const d = $('txt').closest('details'); if (d) d.open = true; $('txt').focus(); $('txt').select(); }
+  else if (k === '-' || k === '=') { if (OUT_FOLLOW()) return; S.k.dim = clamp(S.k.dim + (k === '=' ? .1 : -.1), 0, 1); save(); ui(); }
+});
+canvas.addEventListener('webglcontextlost', e => e.preventDefault());
+canvas.addEventListener('webglcontextrestored', () => location.reload());
+
+// ---------- go ----------
+build();
+if (Q.has('look')) { const i = LOOKS.findIndex(L => L.name === Q.get('look')); if (i >= 0) { S.look = shown = i; S.auto = 0; } }
+ui();
+if (OUT) { $('wait').hidden = false; setTimeout(() => { $('wait').hidden = true; }, 6000); }
+fit();
+window.show = { S, A, LOOKS, PALS, Moho, Mapa, Qy, vid, useVideo, frame, run, bandBins, get ms() { return ema; }, get T() { return T; }, set T(v) { T = v; },
+  step(n, ms) { let t = tPrev || 1000; for (let i = 0; i < n; i++) { t += ms || 16.7; frame(t); } },
+  stats() { gl.bindFramebuffer(gl.FRAMEBUFFER, null); const px = new Uint8Array(RW * RH * 4); gl.readPixels(0, 0, RW, RH, gl.RGBA, gl.UNSIGNED_BYTE, px); let lit = 0, sum = 0; const sig = []; for (let i = 0; i < px.length; i += 4) { const l = (px[i] + px[i + 1] + px[i + 2]) / 3; sum += l; if (l > 16) lit++; } for (let i = 0; i < px.length; i += 4 * 9973) sig.push(px[i] + px[i + 1] + px[i + 2]); return { lit: lit / (RW * RH), mean: sum / (RW * RH) / 255, sig, err: gl.getError(), w: RW, h: RH }; } };
+if (!PROBE) requestAnimationFrame(frame);
+// A covered or minimised window gets almost no animation frames. The console must keep listening and feeding the projector,
+// so while it is hidden a worker's clock drives the frames instead.
+if (!PROBE && !OUT) try {
+  const w = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 16)'], { type: 'application/javascript' })));
+  w.onmessage = () => { if (document.hidden && performance.now() - tPrev > 14) frame(performance.now()); };
+} catch (e) {}
+</script>
+</body>
+</html>
