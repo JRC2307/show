@@ -2,7 +2,7 @@
   // The public copy on show.javierr.com: one static page.
   "name": "show",
   "compatibility_date": "2026-11-01",
-  "workers_dev": true,
+  "workers_dev": false,
   "routes": [{ "pattern": "show.javierr.com", "custom_domain": true }],
   "assets": { "directory": "./web" }
 }
